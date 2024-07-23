@@ -5,7 +5,7 @@ from src.defines import BASE_URL
 from src.types import Offer, User
 
 
-def scrape_offer_url(url: str) -> tuple[Offer, User]:
+def scrape_offer_url(url: str) -> Offer:
     response = requests.get(url)
     response.raise_for_status()  # Raises an HTTPError for bad responses (4XX, 5XX)
 
@@ -30,6 +30,13 @@ def scrape_offer_url(url: str) -> tuple[Offer, User]:
         user_rating = 'No rating'
     user_all_offers_link = BASE_URL + user_link
 
+    user = User(
+        id=user_id,
+        name=user_name,
+        rating=user_rating,
+        all_offers_link=user_all_offers_link,
+    )
+
     # Create data class instances
     offer = Offer(
         id=offer_id,
@@ -40,16 +47,10 @@ def scrape_offer_url(url: str) -> tuple[Offer, User]:
         date=offer_date,
         link=url,
         sold=False,  # TODO check if the offer is sold (doesnt seem to be possible without running JS code on the page)
+        user=user,
     )
 
-    user = User(
-        id=user_id,
-        name=user_name,
-        rating=user_rating,
-        all_offers_link=user_all_offers_link,
-    )
-
-    return offer, user
+    return offer
 
 
 def scrape_offer_links_from_search_url(base_url: str) -> list[str]:
