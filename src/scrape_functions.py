@@ -39,6 +39,7 @@ def scrape_offer_url(url: str) -> tuple[Offer, User]:
         location=offer_location,
         date=offer_date,
         link=url,
+        sold=False,  # TODO check if the offer is sold (doesnt seem to be possible without running JS code on the page)
     )
 
     user = User(

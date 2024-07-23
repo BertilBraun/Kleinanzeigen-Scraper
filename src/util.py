@@ -1,10 +1,9 @@
 import os
 import json
-from dataclasses import is_dataclass
 from enum import Enum
-from typing import Any
+from typing import Any, Callable, Generator
 from contextlib import contextmanager
-from typing import Callable, Generator
+from dataclasses import is_dataclass
 
 
 def write_to_file(file_name: str, content: str) -> None:

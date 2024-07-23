@@ -11,6 +11,7 @@ class Offer:
     location: str
     date: str
     link: str
+    sold: bool
 
 
 @dataclass
