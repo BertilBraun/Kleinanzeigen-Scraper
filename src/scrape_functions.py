@@ -1,15 +1,14 @@
 import requests
 from bs4 import BeautifulSoup
 
-from src.defines import BASE_URL
+from src.defines import BASE_URL, MAX_OFFERS_PER_PAGE
+from src.requests import get
 from src.types import Offer, User
 
 
-def scrape_offer_url(url: str) -> Offer:
-    response = requests.get(url)
-    response.raise_for_status()  # Raises an HTTPError for bad responses (4XX, 5XX)
-
-    soup = BeautifulSoup(response.content, 'html.parser')
+async def scrape_offer_url(url: str) -> Offer:
+    html_content = await get(url)
+    soup = BeautifulSoup(html_content, 'html.parser')
 
     # Extract offer details
     offer_id = soup.find(id='viewad-ad-id-box').find_all('li')[1].text.strip()
@@ -18,6 +17,7 @@ def scrape_offer_url(url: str) -> Offer:
     offer_price = soup.find(id='viewad-price').text.strip()
     offer_location = soup.find(id='viewad-locality').text.strip()
     offer_date = soup.find(id='viewad-extra-info').div.span.text.strip()
+    offer_image_urls = [img['src'] for img in soup.find_all(id='viewad-image')]
 
     # Extract user details
     user_link = soup.find(class_='userprofile-vip').a['href']
@@ -46,7 +46,8 @@ def scrape_offer_url(url: str) -> Offer:
         location=offer_location,
         date=offer_date,
         link=url,
-        sold=False,  # TODO check if the offer is sold (doesnt seem to be possible without running JS code on the page)
+        sold=False,
+        image_urls=offer_image_urls,
         user=user,
     )
 
@@ -70,3 +71,24 @@ def scrape_offer_links_from_search_url(base_url: str) -> list[str]:
             links.append(BASE_URL + href)
 
     return links
+
+
+def scrape_all_offer_links_from_search_url(search_url: str) -> list[str]:
+    all_offer_links: list[str] = []
+
+    for page in range(1, 50):
+        print(f'Scraping page {page}...')
+        try:
+            offer_links = scrape_offer_links_from_search_url(search_url.format(page))
+        except Exception as e:
+            print(f'Error while scraping page {page}: {e}')
+            break
+        print(f'Found {len(offer_links)} offers on page {page}.')
+
+        all_offer_links.extend(offer_links)
+
+        if len(offer_links) < MAX_OFFERS_PER_PAGE:
+            # TODO this breaks if there are exactly 25 offers on the last page
+            break
+
+    return all_offer_links

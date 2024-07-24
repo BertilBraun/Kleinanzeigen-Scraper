@@ -1,2 +1,7 @@
 data.json
 **/__pycache__/**
+
+src/config.py
+
+**.json
+**.xlsx

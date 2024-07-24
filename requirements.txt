@@ -1,2 +1,5 @@
+aiohttp
 requests
 beautifulsoup4
+openai
+openpyxl

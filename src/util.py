@@ -1,5 +1,6 @@
 import os
 import json
+import time
 from enum import Enum
 from typing import Any, Callable, Generator
 from contextlib import contextmanager
@@ -65,3 +66,48 @@ def json_dumper(file_name: str) -> Generator[Callable[[Any], None], None, None]:
         finally:
             f.write(']')
 
+
+@contextmanager
+def log_all_exceptions(message: str = ''):
+    try:
+        yield
+    except KeyboardInterrupt:
+        # if e is keyboard interrupt, exit the program
+        raise
+    except Exception as e:
+        print(f'Error occurred "{message}": {e}')
+
+        import traceback
+
+        traceback.print_exc()
+
+
+@contextmanager
+def timeblock(message: str):
+    """
+    with timeblock('Sleeping') as timer:
+        time.sleep(2)
+        print(f'Slept for {timer.elapsed_time} seconds')
+        time.sleep(1)
+
+    # Output:
+    # Starting Sleeping
+    # Slept for 2.001 seconds
+    # Timing Sleeping took: 3.002 seconds
+    """
+    start_time = time.time()  # Record the start time
+
+    class Timer:
+        # Nested class to allow access to elapsed time within the block
+        @property
+        def elapsed_time(self):
+            # Calculate elapsed time whenever it's requested
+            return time.time() - start_time
+
+    timer = Timer()
+
+    print(f'Starting {message}')
+    try:
+        yield timer  # Allow the block to access the timer
+    finally:
+        print(f'Timing {message} took: {timer.elapsed_time:.3f} seconds')
