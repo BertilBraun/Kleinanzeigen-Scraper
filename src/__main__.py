@@ -43,7 +43,7 @@ def partition_offers(
 
 async def main():
     with timeblock('scraping all offer links'):
-        all_offer_links = scrape_all_offer_links_from_search_url(WINDSURF_SEARCH_URL)
+        all_offer_links = await scrape_all_offer_links_from_search_url(WINDSURF_SEARCH_URL)
     with timeblock(f'scraping all {len(all_offer_links)} offers'):
         all_offers = await scrape_all_offers(all_offer_links)
 

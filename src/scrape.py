@@ -1,8 +1,7 @@
 import asyncio
-import requests
 from bs4 import BeautifulSoup
 
-from src.config import BASE_URL, MAX_OFFERS_PER_PAGE
+from src.config import BASE_URL, MAX_OFFERS_PER_PAGE, OFFER_PAGE_BATCH_SIZE
 from src.requests import get
 from src.types import Offer, User
 from src.util import log_all_exceptions
@@ -56,13 +55,12 @@ async def scrape_offer_url(url: str) -> Offer:
     return offer
 
 
-def scrape_offer_links_from_search_url(base_url: str) -> list[str]:
+async def scrape_offer_links_from_search_url(base_url: str) -> list[str]:
     # Send a GET request to the specified URL
-    response = requests.get(base_url)
-    response.raise_for_status()  # Raises an HTTPError for bad responses (4XX, 5XX)
+    html_content = await get(base_url)
 
     # Parse the HTML content of the page
-    soup = BeautifulSoup(response.text, 'html.parser')
+    soup = BeautifulSoup(html_content, 'html.parser')
 
     # Find all <a> tags and filter by href attribute
     links: list[str] = []
@@ -75,22 +73,19 @@ def scrape_offer_links_from_search_url(base_url: str) -> list[str]:
     return links
 
 
-def scrape_all_offer_links_from_search_url(search_url: str) -> list[str]:
+async def scrape_all_offer_links_from_search_url(search_url: str) -> list[str]:
     all_offer_links: set[str] = set()
 
-    for page in range(1, 50):
-        print(f'Scraping page {page}...')
-        try:
-            offer_links = scrape_offer_links_from_search_url(search_url.format(page))
-        except Exception as e:
-            print(f'Error while scraping page {page}: {e}')
-            break
-        print(f'Found {len(offer_links)} offers on page {page}.')
+    for batch_start in range(1, 100, OFFER_PAGE_BATCH_SIZE):
+        batch_end = batch_start + OFFER_PAGE_BATCH_SIZE
+        offer_link_futures = [
+            scrape_offer_links_from_search_url(search_url.format(page)) for page in range(batch_start, batch_end)
+        ]
+        for offer_links in asyncio.as_completed(offer_link_futures):
+            with log_all_exceptions('while scraping offer links'):
+                all_offer_links.update(await offer_links)
 
-        all_offer_links.update(offer_links)
-
-        if len(offer_links) < MAX_OFFERS_PER_PAGE:
-            # TODO this breaks if there are exactly 25 offers on the last page. At least no link should be added twice since it's a set.
+        if len(all_offer_links) < MAX_OFFERS_PER_PAGE * (batch_end - 1):
             break
 
     return list(all_offer_links)
