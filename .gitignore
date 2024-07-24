@@ -4,4 +4,4 @@ data.json
 src/config.py
 
 **.json
-**.xlsx
+/*.xlsx

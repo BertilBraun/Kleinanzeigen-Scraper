@@ -1,9 +1,11 @@
+import asyncio
 import requests
 from bs4 import BeautifulSoup
 
-from src.defines import BASE_URL, MAX_OFFERS_PER_PAGE
+from src.config import BASE_URL, MAX_OFFERS_PER_PAGE
 from src.requests import get
 from src.types import Offer, User
+from src.util import log_all_exceptions
 
 
 async def scrape_offer_url(url: str) -> Offer:
@@ -74,7 +76,7 @@ def scrape_offer_links_from_search_url(base_url: str) -> list[str]:
 
 
 def scrape_all_offer_links_from_search_url(search_url: str) -> list[str]:
-    all_offer_links: list[str] = []
+    all_offer_links: set[str] = set()
 
     for page in range(1, 50):
         print(f'Scraping page {page}...')
@@ -85,10 +87,19 @@ def scrape_all_offer_links_from_search_url(search_url: str) -> list[str]:
             break
         print(f'Found {len(offer_links)} offers on page {page}.')
 
-        all_offer_links.extend(offer_links)
+        all_offer_links.update(offer_links)
 
         if len(offer_links) < MAX_OFFERS_PER_PAGE:
-            # TODO this breaks if there are exactly 25 offers on the last page
+            # TODO this breaks if there are exactly 25 offers on the last page. At least no link should be added twice since it's a set.
             break
 
-    return all_offer_links
+    return list(all_offer_links)
+
+
+async def scrape_all_offers(all_offer_links: list[str]) -> list[Offer]:
+    offer_futures = [scrape_offer_url(url) for url in all_offer_links]
+    offers: list[Offer] = []
+    for offer in asyncio.as_completed(offer_futures):
+        with log_all_exceptions('while scraping offer'):
+            offers.append(await offer)
+    return offers
