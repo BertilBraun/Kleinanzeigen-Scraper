@@ -13,7 +13,7 @@ def get_example_image() -> str:
         return base64.b64encode(file.read()).decode('utf-8')
 
 
-async def extract_offer_details(offer: Offer) -> Entry | Offer:
+async def extract_offer_details(offer: Offer) -> Entry:
     client = AsyncOpenAI(api_key=OPENAI_API_KEY)
 
     base64_example_image = get_example_image()
@@ -191,14 +191,14 @@ Description: {offer.description}""",
     response_json = response.choices[0].message.content
     if not response_json:
         print('Failed to extract the details of the offer:', offer.title)
-        return offer
+        return DatabaseFactory.Uninteresting.from_offer(offer)
 
     try:
         json_data = json.loads(response_json)
         if json_data['type'] == 'N/A':
-            return offer
+            return DatabaseFactory.Uninteresting.from_offer(offer)
 
         return DatabaseFactory.parse_parial_entry(json_data, offer)
     except ValueError:
         print('Failed to parse the JSON response:', response_json)
-        return offer
+        return DatabaseFactory.Uninteresting.from_offer(offer)

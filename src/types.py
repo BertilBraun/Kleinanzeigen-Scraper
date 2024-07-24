@@ -74,6 +74,8 @@ class DatabaseFactory:
             return DatabaseFactory.FullRig(metadata=metadata, sail=sail, mast=mast, boom=boom)
         elif metadata.type == 'accessory':
             return DatabaseFactory.Accessory(metadata=metadata, **json_data)
+        elif metadata.type == 'uninteresting':
+            return DatabaseFactory.Uninteresting(metadata=metadata)
         else:
             raise ValueError(f'Unknown type: {metadata.type}')
 
@@ -213,6 +215,20 @@ class DatabaseFactory:
                 **self.metadata.to_excel(),
             }
 
+    @dataclass
+    class Uninteresting:
+        metadata: DatabaseFactory.Metadata
+
+        def to_excel(self) -> dict[str, ExcelExportType]:
+            return {
+                'Title': ExcelExportType(number_format=None, value=self.metadata.offer.title),
+                **self.metadata.to_excel(),
+            }
+
+        @staticmethod
+        def from_offer(offer: Offer) -> DatabaseFactory.Uninteresting:
+            return DatabaseFactory.Uninteresting(metadata=DatabaseFactory.Metadata(type='uninteresting', offer=offer))
+
 
 Entry = (
     DatabaseFactory.Sail
@@ -222,6 +238,7 @@ Entry = (
     | DatabaseFactory.FullSet
     | DatabaseFactory.FullRig
     | DatabaseFactory.Accessory
+    | DatabaseFactory.Uninteresting
 )
 
 

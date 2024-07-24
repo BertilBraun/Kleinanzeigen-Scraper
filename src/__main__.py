@@ -5,7 +5,7 @@ import asyncio
 from src.display import to_excel
 from src.extract import extract_offer_details
 from src.scrape import scrape_all_offer_links_from_search_url, scrape_all_offers
-from src.config import CURRENT_OFFERS_FILE, DB_FILE, FILTERED_OUT_OFFERS_FILE, WINDSURF_SEARCH_URL
+from src.config import CURRENT_OFFERS_FILE, DB_FILE, WINDSURF_SEARCH_URL
 from src.types import DatabaseFactory, Entry, Offer
 from src.util import dump_json, timeblock
 
@@ -42,23 +42,29 @@ def partition_offers(
 
 
 async def main():
-    all_offer_links = scrape_all_offer_links_from_search_url(WINDSURF_SEARCH_URL)
-    with timeblock('scraping all offers'):
+    with timeblock('scraping all offer links'):
+        all_offer_links = scrape_all_offer_links_from_search_url(WINDSURF_SEARCH_URL)
+    with timeblock(f'scraping all {len(all_offer_links)} offers'):
         all_offers = await scrape_all_offers(all_offer_links)
 
     dump_json(all_offers, CURRENT_OFFERS_FILE)
 
-    with timeblock('loading the database'):
-        database_entries = load_database(DB_FILE)
+    database_entries = load_database(DB_FILE)
 
     new_offers, old_offers, sold_offers = partition_offers(all_offers, database_entries)
+
+    print(f'New offers: {len(new_offers)}')
+    print(f'Old offers: {len(old_offers)}')
+    print(f'Sold offers: {len(sold_offers)}')
 
     for entry in sold_offers:
         entry.metadata.offer.sold = True
 
     with timeblock('updating old offers'):
         for offer, entry in old_offers:
-            if offer.title != entry.metadata.offer.title or offer.description != entry.metadata.offer.description:
+            title_is_longer = len(offer.title) > len(entry.metadata.offer.title)
+            description_is_longer = len(offer.description) > len(entry.metadata.offer.description)
+            if title_is_longer or description_is_longer:
                 # reextract the offer details via llm
                 new_entry_details = await extract_offer_details(offer)
                 for key, value in new_entry_details.__dict__.items():
@@ -70,13 +76,8 @@ async def main():
     with timeblock('extracting the details of the new offers'):
         extracted_details = await asyncio.gather(*[extract_offer_details(offer) for offer in new_offers])
 
-    new_entries = [entry for entry in extracted_details if isinstance(entry, Entry)]
-    filtered_out_offers = [offer for offer in extracted_details if isinstance(offer, Offer)]
-
-    dump_json(filtered_out_offers, FILTERED_OUT_OFFERS_FILE)
-
     # store everything in the database
-    new_database_entries = new_entries + database_entries
+    new_database_entries = extracted_details + database_entries
     dump_json(new_database_entries, DB_FILE)
 
     path = to_excel(new_database_entries)

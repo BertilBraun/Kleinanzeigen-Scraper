@@ -16,7 +16,7 @@ def to_excel(entries: list[Entry], path: str = 'export.xlsx') -> str:
     if wb.active:
         wb.remove(wb.active)
 
-    for type in 'sail', 'board', 'mast', 'boom', 'full_set', 'full_rig', 'accessory':
+    for type in 'uninteresting', 'accessory', 'full_rig', 'full_set', 'boom', 'mast', 'board', 'sail':
         entries_of_type = list_entries_of_type(entries, type)
         if entries_of_type:
             ws: Worksheet = wb.create_sheet(type.capitalize(), 0)
