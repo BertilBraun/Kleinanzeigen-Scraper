@@ -12,6 +12,8 @@ Make a copy of the `src/config.example.py` file and rename it to `config.py`. Fi
 
 ## Usage
 
+Every time you want to scrape the new offers from the website you can run the following command:
+
 ```bash
 python -m src
 ```
