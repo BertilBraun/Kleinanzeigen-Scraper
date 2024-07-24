@@ -5,7 +5,7 @@ import asyncio
 from src.display import to_excel
 from src.extract import extract_offer_details
 from src.scrape import scrape_all_offer_links_from_search_url, scrape_all_offers
-from src.config import CURRENT_OFFERS_FILE, DB_FILE, WINDSURF_SEARCH_URL
+from src.config import CURRENT_OFFERS_FILE, DB_FILE, WINDSURF_SEARCH_URLS
 from src.types import DatabaseFactory, Entry, Offer
 from src.util import dump_json, timeblock
 
@@ -42,8 +42,11 @@ def partition_offers(
 
 
 async def main():
-    with timeblock('scraping all offer links'):
-        all_offer_links = await scrape_all_offer_links_from_search_url(WINDSURF_SEARCH_URL)
+    all_offer_links: set[str] = set()
+    for search_url in WINDSURF_SEARCH_URLS:
+        with timeblock(f'scraping all offer links from {search_url}'):
+            all_offer_links.update(await scrape_all_offer_links_from_search_url(search_url))
+
     with timeblock(f'scraping all {len(all_offer_links)} offers'):
         all_offers = await scrape_all_offers(all_offer_links)
 
@@ -58,7 +61,7 @@ async def main():
     print(f'Sold offers: {len(sold_offers)}')
 
     for entry in sold_offers:
-        entry.metadata.offer.sold = True  # TODO this does not work if you switch the location from where to search from
+        entry.metadata.offer.sold = True
 
     with timeblock('updating old offers'):
         for offer, entry in old_offers:

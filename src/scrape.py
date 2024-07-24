@@ -91,7 +91,7 @@ async def scrape_all_offer_links_from_search_url(search_url: str) -> list[str]:
     return list(all_offer_links)
 
 
-async def scrape_all_offers(all_offer_links: list[str]) -> list[Offer]:
+async def scrape_all_offers(all_offer_links: set[str]) -> list[Offer]:
     offer_futures = [scrape_offer_url(url) for url in all_offer_links]
     offers: list[Offer] = []
     for offer in asyncio.as_completed(offer_futures):

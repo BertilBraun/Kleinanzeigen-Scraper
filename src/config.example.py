@@ -1,7 +1,10 @@
 OPENAI_API_KEY = 'sk-your-openai-api-key'  # Your OpenAI API key here
 
 BASE_URL = 'https://www.kleinanzeigen.de'
-WINDSURF_SEARCH_URL = BASE_URL + '/s-karlsruhe/seite:{}/windsurfen/k0l9186r50'
+WINDSURF_SEARCH_URLS = [
+    BASE_URL + '/s-karlsruhe/seite:{}/windsurfen/k0l9186r50',
+    BASE_URL + '/s-sindelfingen/seite:{}/windsurfen/k0l8991r30',
+]
 MAX_OFFERS_PER_PAGE = 25
 OFFER_PAGE_BATCH_SIZE = 10
 
