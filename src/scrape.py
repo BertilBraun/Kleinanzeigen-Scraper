@@ -12,24 +12,24 @@ async def scrape_offer_url(url: str) -> Offer:
     soup = BeautifulSoup(html_content, 'html.parser')
 
     # Extract offer details
-    offer_id = soup.find(id='viewad-ad-id-box').find_all('li')[1].text.strip()
-    offer_title = soup.find(id='viewad-title').text.strip()
-    offer_description = soup.find(id='viewad-description-text').text.strip()
-    offer_price = soup.find(id='viewad-price').text.strip()
-    offer_location = soup.find(id='viewad-locality').text.strip()
-    offer_date = soup.find(id='viewad-extra-info').div.span.text.strip()
+    offer_id = soup.find(id='viewad-ad-id-box').find_all('li')[1].text.strip()  # type: ignore
+    offer_title = soup.find(id='viewad-title').text.strip()  # type: ignore
+    offer_description = soup.find(id='viewad-description-text').text.strip()  # type: ignore
+    offer_price = soup.find(id='viewad-price').text.strip()  # type: ignore
+    offer_location = soup.find(id='viewad-locality').text.strip()  # type: ignore
+    offer_date = soup.find(id='viewad-extra-info').div.span.text.strip()  # type: ignore
     offer_image_urls = [img['src'] for img in soup.find_all(id='viewad-image')]
 
     # Extract user details
-    user_link = soup.find(class_='userprofile-vip').a['href']
-    user_id = user_link.split('=')[-1]
-    user_name = soup.find(class_='userprofile-vip').a.text.strip()
+    user_link = soup.find(class_='userprofile-vip').a['href']  # type: ignore
+    user_id = user_link.split('=')[-1]  # type: ignore
+    user_name = soup.find(class_='userprofile-vip').a.text.strip()  # type: ignore
     user_badge_tag = soup.find(class_='userbadge-tag')
     if user_badge_tag:
         user_rating = user_badge_tag.text.strip()
     else:
         user_rating = 'No rating'
-    user_all_offers_link = BASE_URL + user_link
+    user_all_offers_link = BASE_URL + user_link  # type: ignore
 
     user = User(
         id=user_id,
