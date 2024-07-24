@@ -68,9 +68,9 @@ class DatabaseFactory:
         elif metadata.type == 'full_set':
             return DatabaseFactory.FullSet(metadata=metadata, **json_data)
         elif metadata.type == 'full_rig':
-            sail = DatabaseFactory.Sail(**json_data.pop('sail'))
-            mast = DatabaseFactory.Mast(**json_data.pop('mast'))
-            boom = DatabaseFactory.Boom(**json_data.pop('boom'))
+            sail = DatabaseFactory.Sail(metadata=metadata, **json_data.pop('sail').pop('type'))
+            mast = DatabaseFactory.Mast(metadata=metadata, **json_data.pop('mast').pop('type'))
+            boom = DatabaseFactory.Boom(metadata=metadata, **json_data.pop('boom').pop('type'))
             return DatabaseFactory.FullRig(metadata=metadata, sail=sail, mast=mast, boom=boom)
         elif metadata.type == 'accessory':
             return DatabaseFactory.Accessory(metadata=metadata, **json_data)

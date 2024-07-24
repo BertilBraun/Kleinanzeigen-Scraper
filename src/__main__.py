@@ -58,7 +58,7 @@ async def main():
     print(f'Sold offers: {len(sold_offers)}')
 
     for entry in sold_offers:
-        entry.metadata.offer.sold = True
+        entry.metadata.offer.sold = True  # TODO this does not work if you switch the location from where to search from
 
     with timeblock('updating old offers'):
         for offer, entry in old_offers:

@@ -18,12 +18,13 @@ async def extract_offer_details(offer: Offer) -> Entry:
 
     base64_example_image = get_example_image()
 
-    response = await client.chat.completions.create(
-        model=LLM_MODEL_ID,
-        messages=[
-            {
-                'role': 'system',
-                'content': """You are a helpful assistant that extracts information from eBay Kleinanzeigen related to Windsurf equipment and converts it into a specific JSON format. The types of equipment include sails, boards, masts, booms, full sets, full rigs, and accessories. 
+    try:
+        response = await client.chat.completions.create(
+            model=LLM_MODEL_ID,
+            messages=[
+                {
+                    'role': 'system',
+                    'content': """You are a helpful assistant that extracts information from eBay Kleinanzeigen related to Windsurf equipment and converts it into a specific JSON format. The types of equipment include sails, boards, masts, booms, full sets, full rigs, and accessories. 
 
 If the information is not available or cannot be determined from the input, use "".
 
@@ -129,32 +130,32 @@ If the type of equipment cannot be determined or is not relevant to usable winds
 This will be for items like child equipment, courses, toys, etc. which are not relevant to windsurfing.
 
 """,
-            },
-            {
-                'role': 'user',
-                'content': [
-                    {
-                        'type': 'text',
-                        'text': """As an example, let's extract the details of the following offer:
+                },
+                {
+                    'role': 'user',
+                    'content': [
+                        {
+                            'type': 'text',
+                            'text': """As an example, let's extract the details of the following offer:
 ---
 
 Convert the following offer into the appropriate JSON format:
 
 Title: North Spectro 6.5 Surfsegel Windsurfen
 Description: Segel mit wenigen Gebrauchsspuren. 2 Band-Camber als Profilgeber. Ein kleiner getapteter Cut im Unterliek. gerne auch mit Carbonmast + 20€""",
-                    },
-                    {
-                        'type': 'image_url',
-                        'image_url': {
-                            'url': f'data:image/png;base64,{base64_example_image}',
-                            'detail': 'low',  # The image is already downsampled to 512x512
                         },
-                    },
-                ],
-            },
-            {
-                'role': 'assistant',
-                'content': """{
+                        {
+                            'type': 'image_url',
+                            'image_url': {
+                                'url': f'data:image/png;base64,{base64_example_image}',
+                                'detail': 'low',  # The image is already downsampled to 512x512
+                            },
+                        },
+                    ],
+                },
+                {
+                    'role': 'assistant',
+                    'content': """{
   "type": "sail",
   "size": "6.5",
   "brand": "North Spectro",
@@ -163,42 +164,41 @@ Description: Segel mit wenigen Gebrauchsspuren. 2 Band-Camber als Profilgeber. E
   "year": "N/A",
   "state": "repaired"
 }""",
-            },
-            {
-                'role': 'user',
-                'content': [
-                    {
-                        'type': 'text',
-                        'text': f"""Convert the following offer into the appropriate JSON format:
+                },
+                {
+                    'role': 'user',
+                    'content': [
+                        {
+                            'type': 'text',
+                            'text': f"""Convert the following offer into the appropriate JSON format:
 
 Title: {offer.title}
 Description: {offer.description}""",
-                    },
-                    *[
-                        {
-                            'type': 'image_url',
-                            'image_url': {'url': url, 'detail': 'high'},
-                        }
-                        for url in offer.image_urls
+                        },
+                        *[
+                            {
+                                'type': 'image_url',
+                                'image_url': {'url': url, 'detail': 'high'},
+                            }
+                            for url in offer.image_urls
+                        ],
                     ],
-                ],
-            },
-        ],
-        temperature=0.0,
-        response_format={'type': 'json_object'},
-    )
+                },
+            ],
+            temperature=0.0,
+            response_format={'type': 'json_object'},
+        )
 
-    response_json = response.choices[0].message.content
-    if not response_json:
-        print('Failed to extract the details of the offer:', offer.title)
-        return DatabaseFactory.Uninteresting.from_offer(offer)
+        response_json = response.choices[0].message.content
+        if not response_json:
+            print('Failed to extract the details of the offer:', offer.title)
+            return DatabaseFactory.Uninteresting.from_offer(offer)
 
-    try:
         json_data = json.loads(response_json)
         if json_data['type'] == 'N/A':
             return DatabaseFactory.Uninteresting.from_offer(offer)
 
         return DatabaseFactory.parse_parial_entry(json_data, offer)
-    except ValueError:
+    except:  # noqa
         print('Failed to parse the JSON response:', response_json)
         return DatabaseFactory.Uninteresting.from_offer(offer)
