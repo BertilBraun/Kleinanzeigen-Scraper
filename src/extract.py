@@ -19,6 +19,7 @@ async def extract_offer_details(offer: Offer) -> Entry:
     base64_example_image = get_example_image()
 
     try:
+        response_json: str | None = None
         response = await client.chat.completions.create(
             model=LLM_MODEL_ID,
             messages=[

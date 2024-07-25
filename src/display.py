@@ -18,6 +18,7 @@ def to_excel(entries: list[Entry], path: str = 'export.xlsx') -> str:
 
     for type in 'uninteresting', 'accessory', 'full_rig', 'full_set', 'boom', 'mast', 'board', 'sail':
         entries_of_type = list_entries_of_type(entries, type)
+        entries_of_type.sort(key=lambda entry: entry.to_excel()['Date'].value, reverse=True)
         if entries_of_type:
             ws: Worksheet = wb.create_sheet(type.capitalize(), 0)
             add_entries_to_worksheet(ws, entries_of_type)

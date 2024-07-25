@@ -1,7 +1,6 @@
 import json
 import asyncio
 
-
 from src.display import to_excel
 from src.extract import extract_offer_details
 from src.scrape import scrape_all_offer_links_from_search_url, scrape_all_offers
@@ -85,6 +84,14 @@ async def main():
 
     path = to_excel(new_database_entries)
     print(f'Data saved to: {path}')
+
+    print('New offers:')
+    for entry in extracted_details:
+        print('-' * 30 + f' New offer: {entry.metadata.type} ' + '-' * 30)
+        for name, value in entry.to_excel().items():
+            if name not in ['All other offers', 'Date', 'Location', 'Sold', 'VB']:
+                print(f'{name}: {value.value}')
+        print('-' * 80)
 
 
 if __name__ == '__main__':
