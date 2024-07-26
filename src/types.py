@@ -34,12 +34,19 @@ class Offer:
     link: str
     sold: bool
     image_urls: list[str]
+    scraped_on: pd.Timestamp
     user: User
 
     @staticmethod
-    def from_json(json_data: dict) -> 'Offer':
+    def from_json(json_data: dict) -> Offer:
         user_data = json_data.pop('user')
         user = User.from_json(user_data)
+
+        if 'scraped_on' not in json_data:
+            scraped_on = pd.Timestamp.now()
+        else:
+            scraped_on = pd.to_datetime(json_data['scraped_on'], errors='ignore', dayfirst=True)
+
         return Offer(
             user=user,
             id=json_data['id'],
@@ -51,6 +58,7 @@ class Offer:
             link=json_data['link'],
             sold=json_data['sold'],
             image_urls=json_data['image_urls'],
+            scraped_on=scraped_on,
         )
 
 
@@ -110,9 +118,18 @@ class DatabaseFactory:
         elif metadata.type == 'full_set':
             return DatabaseFactory.FullSet(metadata=metadata, content_description=json_data['content_description'])
         elif metadata.type == 'full_rig':
-            sail = DatabaseFactory.parse_parial_entry(json_data.pop('sail'), metadata.offer)
-            mast = DatabaseFactory.parse_parial_entry(json_data.pop('mast'), metadata.offer)
-            boom = DatabaseFactory.parse_parial_entry(json_data.pop('boom'), metadata.offer)
+            sail_data = json_data.pop('sail')
+            if 'type' not in sail_data:
+                sail_data['type'] = 'sail'
+            sail = DatabaseFactory.parse_parial_entry(sail_data, metadata.offer)
+            mast_data = json_data.pop('mast')
+            if 'type' not in mast_data:
+                mast_data['type'] = 'mast'
+            mast = DatabaseFactory.parse_parial_entry(mast_data, metadata.offer)
+            boom_data = json_data.pop('boom')
+            if 'type' not in boom_data:
+                boom_data['type'] = 'boom'
+            boom = DatabaseFactory.parse_parial_entry(boom_data, metadata.offer)
             return DatabaseFactory.FullRig(metadata=metadata, sail=sail, mast=mast, boom=boom)  # type: ignore
         elif metadata.type == 'accessory':
             return DatabaseFactory.Accessory(metadata=metadata, accessory_type=json_data['accessory_type'])
@@ -148,6 +165,7 @@ class DatabaseFactory:
                 'Link': ExcelExportType(number_format=None, value=self.offer.link),
                 'User name': ExcelExportType(number_format=None, value=self.offer.user.name),
                 'All other offers': ExcelExportType(number_format=None, value=self.offer.user.all_offers_link),
+                'Scraped on': ExcelExportType(number_format='DD/MM/YYYY', value=self.offer.scraped_on),
             }
 
     @dataclass

@@ -6,6 +6,8 @@ from typing import Any, Callable, Generator
 from contextlib import contextmanager
 from dataclasses import is_dataclass
 
+import pandas as pd
+
 
 def write_to_file(file_name: str, content: str) -> None:
     dir_name = os.path.dirname(file_name)
@@ -22,6 +24,8 @@ def custom_asdict(obj):
             value = getattr(obj, field_name)
             result[field_name] = custom_asdict(value)
         return result
+    elif isinstance(obj, pd.Timestamp):
+        return obj.strftime('%Y-%m-%d %H:%M:%S')
     elif isinstance(obj, Enum):
         return obj.value
     elif isinstance(obj, list) or isinstance(obj, tuple):

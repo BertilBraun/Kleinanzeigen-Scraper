@@ -1,5 +1,6 @@
 import asyncio
 from bs4 import BeautifulSoup
+import pandas as pd
 
 from src.config import BASE_URL, MAX_OFFERS_PER_PAGE, OFFER_PAGE_BATCH_SIZE
 from src.requests import get
@@ -50,6 +51,7 @@ async def scrape_offer_url(url: str) -> Offer:
         sold=False,
         image_urls=offer_image_urls,
         user=user,
+        scraped_on=pd.Timestamp.now(),
     )
 
     return offer
