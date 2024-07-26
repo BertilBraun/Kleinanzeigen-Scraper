@@ -67,6 +67,9 @@ async def main():
             title_is_longer = len(offer.title) > len(entry.metadata.offer.title)
             description_is_longer = len(offer.description) > len(entry.metadata.offer.description)
             if title_is_longer or description_is_longer:
+                print(
+                    f'Offer {offer.id} has a longer title or description than the one in the database. Re-extracting the details.'
+                )
                 # reextract the offer details via llm
                 new_entry_details = await extract_offer_details(offer)
                 for key, value in new_entry_details.__dict__.items():

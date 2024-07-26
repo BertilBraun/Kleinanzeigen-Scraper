@@ -118,7 +118,7 @@ Accessory:
 ```json
 {
   "type": "accessory",
-  "accessory_type": "Mastfoot, Harness Lines, Fins, etc.",
+  "accessory_type": "Mastfoot, Mast extension, Harness Lines, Fins, etc.",
 }
 ```
 

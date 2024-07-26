@@ -15,7 +15,12 @@ class User:
 
     @staticmethod
     def from_json(json_data: dict) -> 'User':
-        return User(**json_data)
+        return User(
+            id=json_data['id'],
+            name=json_data['name'],
+            rating=json_data['rating'],
+            all_offers_link=json_data['all_offers_link'],
+        )
 
 
 @dataclass
@@ -35,7 +40,18 @@ class Offer:
     def from_json(json_data: dict) -> 'Offer':
         user_data = json_data.pop('user')
         user = User.from_json(user_data)
-        return Offer(user=user, **json_data)
+        return Offer(
+            user=user,
+            id=json_data['id'],
+            title=json_data['title'],
+            description=json_data['description'],
+            price=json_data['price'],
+            location=json_data['location'],
+            date=json_data['date'],
+            link=json_data['link'],
+            sold=json_data['sold'],
+            image_urls=json_data['image_urls'],
+        )
 
 
 class DatabaseFactory:
@@ -58,22 +74,48 @@ class DatabaseFactory:
     @staticmethod
     def _parse_entry(json_data: dict, metadata: DatabaseFactory.Metadata) -> Entry:
         if metadata.type == 'sail':
-            return DatabaseFactory.Sail(metadata=metadata, **json_data)
+            return DatabaseFactory.Sail(
+                metadata=metadata,
+                size=json_data['size'],
+                brand=json_data['brand'],
+                mast_length=json_data['mast_length'],
+                boom_size=json_data['boom_size'],
+                year=json_data['year'],
+                state=json_data['state'],
+            )
         elif metadata.type == 'board':
-            return DatabaseFactory.Board(metadata=metadata, **json_data)
+            return DatabaseFactory.Board(
+                metadata=metadata,
+                size=json_data['size'],
+                brand=json_data['brand'],
+                board_type=json_data['board_type'],
+                volume=json_data['volume'],
+                year=json_data['year'],
+            )
         elif metadata.type == 'mast':
-            return DatabaseFactory.Mast(metadata=metadata, **json_data)
+            return DatabaseFactory.Mast(
+                metadata=metadata,
+                brand=json_data['brand'],
+                length=json_data['length'],
+                carbon=json_data['carbon'],
+                rdm_or_sdm=json_data['rdm_or_sdm'],
+            )
         elif metadata.type == 'boom':
-            return DatabaseFactory.Boom(metadata=metadata, **json_data)
+            return DatabaseFactory.Boom(
+                metadata=metadata,
+                brand=json_data['brand'],
+                size=json_data['size'],
+                year=json_data['year'],
+            )
         elif metadata.type == 'full_set':
-            return DatabaseFactory.FullSet(metadata=metadata, **json_data)
+            return DatabaseFactory.FullSet(metadata=metadata, content_description=json_data['content_description'])
         elif metadata.type == 'full_rig':
-            sail = DatabaseFactory.Sail(metadata=metadata, **json_data.pop('sail').pop('type'))
-            mast = DatabaseFactory.Mast(metadata=metadata, **json_data.pop('mast').pop('type'))
-            boom = DatabaseFactory.Boom(metadata=metadata, **json_data.pop('boom').pop('type'))
-            return DatabaseFactory.FullRig(metadata=metadata, sail=sail, mast=mast, boom=boom)
+            sail = DatabaseFactory.parse_parial_entry(json_data.pop('sail'), metadata.offer)
+            mast = DatabaseFactory.parse_parial_entry(json_data.pop('mast'), metadata.offer)
+            boom = DatabaseFactory.parse_parial_entry(json_data.pop('boom'), metadata.offer)
+            return DatabaseFactory.FullRig(metadata=metadata, sail=sail, mast=mast, boom=boom)  # type: ignore
         elif metadata.type == 'accessory':
-            return DatabaseFactory.Accessory(metadata=metadata, **json_data)
+            return DatabaseFactory.Accessory(metadata=metadata, accessory_type=json_data['accessory_type'])
         elif metadata.type == 'uninteresting':
             return DatabaseFactory.Uninteresting(metadata=metadata)
         else:
@@ -88,7 +130,7 @@ class DatabaseFactory:
         def from_json(json_data: dict) -> DatabaseFactory.Metadata:
             offer_data = json_data.pop('offer')
             offer = Offer.from_json(offer_data)
-            return DatabaseFactory.Metadata(offer=offer, **json_data)
+            return DatabaseFactory.Metadata(offer=offer, type=json_data['type'])
 
         def to_excel(self) -> dict[str, ExcelExportType]:
             return {
