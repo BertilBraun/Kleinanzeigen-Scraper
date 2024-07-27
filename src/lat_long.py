@@ -1,13 +1,17 @@
+from functools import cache
 import math
 import re
 
 
-def extract_plz(data: str) -> int:
+def extract_plz(data: str) -> int | None:
     """Extract the postal code from the data."""
-    assert re.search(r'\d{5}', data), f'No postal code found in the data: {data}'
-    return int(re.search(r'\d{5}', data).group())  # type: ignore
+    res = re.search(r'\d{5}', data)
+    if res is None:
+        return None
+    return int(res.group())
 
 
+@cache
 def plz_to_lat_long(plz: int) -> tuple[float, float]:
     """Convert the postal code to latitude and longitude."""
     # load the data/plz_geocoord.csv file

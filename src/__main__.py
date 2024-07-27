@@ -4,7 +4,9 @@ import asyncio
 from src.display import to_excel
 from src.extract import extract_offer_details
 from src.lat_long import distance, extract_plz, plz_to_lat_long
-from src.scrape import scrape_all_offer_links_from_search_url, scrape_all_offers
+from src.scraper import BaseScraper
+from src.scraper_dailydose import ScraperDailyDose
+from src.scraper_kleinanzeigen import ScraperKleinanzeigen
 from src.config import CURRENT_OFFERS_FILE, DB_FILE, INTEREST_LOCATIONS, WINDSURF_SEARCH_URLS
 from src.types import DatabaseFactory, Entry, Offer
 from src.util import dump_json, timeblock
@@ -42,13 +44,10 @@ def partition_offers(
 
 
 async def main():
-    all_offer_links: set[str] = set()
-    for search_url in WINDSURF_SEARCH_URLS:
-        with timeblock(f'scraping all offer links from {search_url}'):
-            all_offer_links.update(await scrape_all_offer_links_from_search_url(search_url))
-
-    with timeblock(f'scraping all {len(all_offer_links)} offers'):
-        all_offers = await scrape_all_offers(list(all_offer_links))
+    all_offers: list[Offer] = []
+    ALL_SCRAPERS: list[BaseScraper] = [ScraperKleinanzeigen(), ScraperDailyDose()]
+    for scraper in ALL_SCRAPERS:
+        all_offers.extend(await scraper.scrape_all_offers(WINDSURF_SEARCH_URLS))
 
     dump_json(all_offers, CURRENT_OFFERS_FILE)
 
@@ -56,12 +55,15 @@ async def main():
 
     new_offers, old_offers, sold_offers = partition_offers(all_offers, database_entries)
 
-    # TODO extract the lat and lon of the offers
     filtered_new_offers: list[Offer] = []
     for offer in new_offers:
-        lat_lon = plz_to_lat_long(extract_plz(offer.location))
-        if any(distance(lat_lon, location) < radius for location, radius in INTEREST_LOCATIONS):
-            filtered_new_offers.append(offer)
+        if plz := extract_plz(offer.location):
+            # not all offers from dailydose.de have a plz in the location
+            lat_lon = plz_to_lat_long(plz)
+            if any(distance(lat_lon, location) < radius for location, radius in INTEREST_LOCATIONS):
+                filtered_new_offers.append(offer)
+        else:
+            print(f'Offer: {offer.title} has no postal code - check manually: {offer.link}')
 
     print(f'New offers: {len(filtered_new_offers)}')
     print(f'Old offers: {len(old_offers)}')
@@ -113,5 +115,5 @@ async def main():
 
 
 if __name__ == '__main__':
-    to_excel(load_database(DB_FILE))
-    # asyncio.run(main())
+    # to_excel(load_database(DB_FILE))
+    asyncio.run(main())
