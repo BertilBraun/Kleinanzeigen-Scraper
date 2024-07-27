@@ -3,7 +3,7 @@ import base64
 
 from openai import AsyncOpenAI
 
-from src.config import OPENAI_API_KEY, LLM_MODEL_ID
+from src.config import MAX_NUM_IMAGES, OPENAI_API_KEY, LLM_MODEL_ID
 from src.types import DatabaseFactory, Entry, Offer
 
 
@@ -181,7 +181,7 @@ Description: {offer.description}""",
                                 'type': 'image_url',
                                 'image_url': {'url': url, 'detail': 'high'},
                             }
-                            for url in offer.image_urls
+                            for url in offer.image_urls[:MAX_NUM_IMAGES]
                         ],
                     ],
                 },

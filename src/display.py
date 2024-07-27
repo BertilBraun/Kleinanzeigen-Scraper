@@ -37,13 +37,16 @@ def add_entries_to_worksheet(ws: Worksheet, entries: list[Entry]) -> None:
     for cell in ws[1]:
         cell.font = Font(bold=True)
 
-    max_lengths = [0] * len(headers)
+    max_lengths = [len(header) for header in headers]
 
     for row_idx, sail in enumerate(entries, 2):
         for col_idx, value in enumerate(sail.to_excel().values(), 1):
             cell = ws.cell(row=row_idx, column=col_idx)
             cell.value = value.value
-            max_lengths[col_idx - 1] = max(max_lengths[col_idx - 1], len(str(value.value)))
+            if isinstance(value.value, float):
+                max_lengths[col_idx - 1] = max(max_lengths[col_idx - 1], len(str(round(value.value, 2))))
+            else:
+                max_lengths[col_idx - 1] = max(max_lengths[col_idx - 1], len(str(value.value)))
             if value.number_format:
                 cell.number_format = value.number_format
             if isinstance(value.value, str) and value.value.startswith('http'):

@@ -3,6 +3,8 @@ from dataclasses import dataclass
 
 import pandas as pd
 
+from src.config import INTEREST_LOCATIONS
+from src.lat_long import distance, extract_plz, plz_to_lat_long
 from src.util import log_all_exceptions
 
 
@@ -150,6 +152,8 @@ class DatabaseFactory:
             return DatabaseFactory.Metadata(offer=offer, type=json_data['type'])
 
         def to_excel(self) -> dict[str, ExcelExportType]:
+            lat_lng = plz_to_lat_long(extract_plz(self.offer.location))
+            min_distance = min(distance(lat_lng, location) for location, _ in INTEREST_LOCATIONS)
             return {
                 'Price': ExcelExportType(
                     number_format='#0 €',
@@ -165,7 +169,8 @@ class DatabaseFactory:
                 'Link': ExcelExportType(number_format=None, value=self.offer.link),
                 'User name': ExcelExportType(number_format=None, value=self.offer.user.name),
                 'All other offers': ExcelExportType(number_format=None, value=self.offer.user.all_offers_link),
-                'Scraped on': ExcelExportType(number_format='DD/MM/YYYY', value=self.offer.scraped_on),
+                'Scraped on': ExcelExportType(number_format='DD/MM/YYYY HH:MM:SS', value=self.offer.scraped_on),
+                'Min Distance (km)': ExcelExportType(number_format='#0', value=min_distance),
             }
 
     @dataclass
@@ -203,7 +208,12 @@ class DatabaseFactory:
                 'Size': ExcelExportType(number_format=None, value=self.size),
                 'Brand': ExcelExportType(number_format=None, value=self.brand),
                 'Board type': ExcelExportType(number_format=None, value=self.board_type),
-                'Volume': ExcelExportType(number_format='#0', value=parse_numeric(self.volume)),
+                'Volume': ExcelExportType(
+                    number_format='#0',
+                    value=parse_numeric(
+                        self.volume.lower().replace('liters', '').replace('liter', '').replace('l', '').strip()
+                    ),
+                ),
                 'Year': ExcelExportType(number_format=None, value=self.year),
                 **self.metadata.to_excel(),
             }

@@ -93,10 +93,16 @@ async def scrape_all_offer_links_from_search_url(search_url: str) -> list[str]:
     return list(all_offer_links)
 
 
-async def scrape_all_offers(all_offer_links: set[str]) -> list[Offer]:
-    offer_futures = [scrape_offer_url(url) for url in all_offer_links]
+async def scrape_all_offers(all_offer_links: list[str]) -> list[Offer]:
+    return [await scrape_offer_url(url) for url in all_offer_links]
+
     offers: list[Offer] = []
-    for offer in asyncio.as_completed(offer_futures):
-        with log_all_exceptions('while scraping offer'):
-            offers.append(await offer)
+    for batch_start in range(0, len(all_offer_links), OFFER_PAGE_BATCH_SIZE):
+        batch_end = min(batch_start + OFFER_PAGE_BATCH_SIZE, len(all_offer_links))
+        offer_futures = [scrape_offer_url(url) for url in all_offer_links[batch_start:batch_end]]
+        for offer in asyncio.as_completed(offer_futures):
+            with log_all_exceptions('while scraping offer'):
+                offers.append(await offer)
+
+        await asyncio.sleep(30)
     return offers
