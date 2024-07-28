@@ -1,26 +1,33 @@
 from abc import abstractmethod
 import asyncio
 
+from tqdm import tqdm
+
 from src.types import Offer
 from src.util import log_all_exceptions, timeblock
 
 
 class BaseScraper:
-    def __init__(self, offer_page_batch_size: int, max_offers_per_page: int):
+    def __init__(self, offer_page_batch_size: int, max_offers_per_page: int, max_pages_to_scrape: int):
         self.offer_page_batch_size = offer_page_batch_size
         self.max_offers_per_page = max_offers_per_page
+        self.max_pages_to_scrape = max_pages_to_scrape
 
     @abstractmethod
     def filter_relevant_urls(self, urls: list[str]) -> list[str]:
         ...
 
     async def scrape_all_offers(self, search_urls: list[str]) -> list[Offer]:
-        all_offer_links: set[str] = set()
-        for search_url in self.filter_relevant_urls(search_urls):
-            with timeblock(f'scraping all offer links from {search_url} from DailyDose'):
-                all_offer_links.update(await self._scrape_all_offer_links_from_search_url(search_url))
+        with timeblock('scraping all offer links'):
+            all_offer_links_list = await asyncio.gather(
+                *[
+                    self._scrape_all_offer_links_from_search_url(search_url)
+                    for search_url in self.filter_relevant_urls(search_urls)
+                ]
+            )
+        all_offer_links = set().union(*all_offer_links_list)
 
-        with timeblock(f'scraping all {len(all_offer_links)} offers from DailyDose'):
+        with timeblock(f'scraping all {len(all_offer_links)} offers'):
             return await self._scrape_all_offers_from_offer_links(list(all_offer_links))
 
     @abstractmethod
@@ -35,7 +42,7 @@ class BaseScraper:
         all_offer_links: set[str] = set()
 
         for batch_start in range(1, 100, self.offer_page_batch_size):
-            batch_end = batch_start + self.offer_page_batch_size
+            batch_end = min(batch_start + self.offer_page_batch_size, self.max_pages_to_scrape)
             offer_link_futures = [
                 self.scrape_offer_links_from_search_url(search_url.format(page))
                 for page in range(batch_start, batch_end)
@@ -50,7 +57,7 @@ class BaseScraper:
         return list(all_offer_links)
 
     async def _scrape_all_offers_from_offer_links(self, all_offer_links: list[str]) -> list[Offer]:
-        return [await self.scrape_offer_url(url) for url in all_offer_links]
+        return [await self.scrape_offer_url(url) for url in tqdm(all_offer_links)]
 
         offers: list[Offer] = []
         for batch_start in range(0, len(all_offer_links), self.offer_page_batch_size):

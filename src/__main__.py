@@ -45,7 +45,10 @@ def partition_offers(
 
 async def main():
     all_offers: list[Offer] = []
-    ALL_SCRAPERS: list[BaseScraper] = [ScraperKleinanzeigen(), ScraperDailyDose()]
+    ALL_SCRAPERS: list[BaseScraper] = [
+        ScraperKleinanzeigen(max_pages_to_scrape=10),
+        ScraperDailyDose(max_pages_to_scrape=10),
+    ]
     for scraper in ALL_SCRAPERS:
         all_offers.extend(await scraper.scrape_all_offers(WINDSURF_SEARCH_URLS))
 
@@ -63,7 +66,7 @@ async def main():
             if any(distance(lat_lon, location) < radius for location, radius in INTEREST_LOCATIONS):
                 filtered_new_offers.append(offer)
         else:
-            print(f'Offer: {offer.title} has no postal code - check manually: {offer.link}')
+            print(f'Offer: {offer.title} has no postal code ({offer.location}) - check manually: {offer.link}')
 
     print(f'New offers: {len(filtered_new_offers)}')
     print(f'Old offers: {len(old_offers)}')

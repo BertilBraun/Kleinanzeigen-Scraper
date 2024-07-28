@@ -8,8 +8,8 @@ from src.types import Offer, User
 
 
 class ScraperDailyDose(BaseScraper):
-    def __init__(self):
-        super().__init__(offer_page_batch_size=10, max_offers_per_page=30)
+    def __init__(self, max_pages_to_scrape: int = 1000):
+        super().__init__(offer_page_batch_size=10, max_offers_per_page=30, max_pages_to_scrape=max_pages_to_scrape)
 
     def filter_relevant_urls(self, urls: list[str]) -> list[str]:
         return [url for url in urls if url.startswith(BASE_URL_DAILYDOSE)]
@@ -29,7 +29,7 @@ class ScraperDailyDose(BaseScraper):
 
         # Extract details from the 'Anzeigendetails' section
         details = soup.find_all('span', style='color:rgba(255,255,255,0.4)')
-        offer_price = details[0].next_sibling.replace(',- €', '').replace('€', '').strip() if details else 'None'
+        offer_price = details[0].next_sibling.replace(',-', '').replace('€', '').strip() if details else 'None'
         offer_location = details[1].next_sibling.strip() if len(details) > 1 else 'None'
         user_name = details[2].next_sibling.strip() if len(details) > 2 else 'None'
         offer_date = details[3].next_sibling.strip() if len(details) > 3 else 'None'

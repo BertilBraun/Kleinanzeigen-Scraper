@@ -39,6 +39,8 @@ def custom_asdict(obj):
 
 
 def dump_json(obj: Any, file_name: str) -> None:
+    if os.path.exists(file_name):
+        write_to_file(file_name + '.bak', open(file_name).read())
     write_to_file(file_name, json.dumps(custom_asdict(obj), indent=4))
 
 

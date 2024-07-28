@@ -2,3 +2,4 @@ aiohttp
 beautifulsoup4
 openai
 openpyxl
+tqdm

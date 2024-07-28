@@ -8,11 +8,11 @@ from src.types import Offer, User
 
 
 class ScraperKleinanzeigen(BaseScraper):
-    def __init__(self):
-        super().__init__(offer_page_batch_size=10, max_offers_per_page=25)
+    def __init__(self, max_pages_to_scrape: int = 1000):
+        super().__init__(offer_page_batch_size=10, max_offers_per_page=25, max_pages_to_scrape=max_pages_to_scrape)
 
     def filter_relevant_urls(self, urls: list[str]) -> list[str]:
-        return [url for url in urls if 's-anzeige' in url and url.startswith(BASE_URL_KLEINANZEIGEN)]
+        return [url for url in urls if url.startswith(BASE_URL_KLEINANZEIGEN)]
 
     async def scrape_offer_url(self, url: str) -> Offer:
         html_content = await get(url)

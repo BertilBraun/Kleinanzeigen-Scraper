@@ -1,25 +1,36 @@
+import asyncio
 import json
 import base64
 
 from openai import AsyncOpenAI
 
+from src.requests import get_bytes
 from src.config import MAX_NUM_IMAGES, OPENAI_API_KEY, LLM_MODEL_ID
 from src.types import DatabaseFactory, Entry, Offer
+
+
+def base64_encode_image(image: bytes) -> str:
+    return base64.b64encode(image).decode('utf-8')
 
 
 def get_example_image() -> str:
     # load example_prompt_image.jpeg and convert to base64
     with open('data/example_prompt_image.jpeg', 'rb') as file:
-        return base64.b64encode(file.read()).decode('utf-8')
+        return base64_encode_image(file.read())
+
+
+async def download_and_convert_images(image_urls: list[str]) -> list[str]:
+    image_bytes = await asyncio.gather(*[get_bytes(url) for url in image_urls])
+    return [base64_encode_image(image) for image in image_bytes]
 
 
 async def extract_offer_details(offer: Offer) -> Entry:
     client = AsyncOpenAI(api_key=OPENAI_API_KEY)
 
     base64_example_image = get_example_image()
+    base64_images = await download_and_convert_images(offer.image_urls[:MAX_NUM_IMAGES])
 
     try:
-        response_json: str | None = None
         response = await client.chat.completions.create(
             model=LLM_MODEL_ID,
             messages=[
@@ -179,9 +190,9 @@ Description: {offer.description}""",
                         *[
                             {
                                 'type': 'image_url',
-                                'image_url': {'url': url, 'detail': 'high'},
+                                'image_url': {'url': f'data:image/png;base64,{image}', 'detail': 'auto'},
                             }
-                            for url in offer.image_urls[:MAX_NUM_IMAGES]
+                            for image in base64_images
                         ],
                     ],
                 },
@@ -189,7 +200,11 @@ Description: {offer.description}""",
             temperature=0.0,
             response_format={'type': 'json_object'},
         )
+    except Exception as e:
+        print('Failed to get the response:', e)
+        return DatabaseFactory.Uninteresting.from_offer(offer)
 
+    try:
         response_json = response.choices[0].message.content
         if not response_json:
             print('Failed to extract the details of the offer:', offer.title)
