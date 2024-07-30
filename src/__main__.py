@@ -7,7 +7,7 @@ from src.lat_long import distance, extract_plz, plz_to_lat_long
 from src.scraper import BaseScraper
 from src.scraper_dailydose import ScraperDailyDose
 from src.scraper_kleinanzeigen import ScraperKleinanzeigen
-from src.config import CURRENT_OFFERS_FILE, DB_FILE, INTEREST_LOCATIONS, WINDSURF_SEARCH_URLS
+from src.config import CURRENT_OFFERS_FILE, DB_FILE, DO_REQUERY_OLD_OFFERS, INTEREST_LOCATIONS, WINDSURF_SEARCH_URLS
 from src.types import DatabaseFactory, Entry, Offer
 from src.util import dump_json, timeblock
 
@@ -79,7 +79,7 @@ async def main():
         for offer, entry in old_offers:
             title_is_longer = len(offer.title) > len(entry.metadata.offer.title)
             description_is_longer = len(offer.description) > len(entry.metadata.offer.description)
-            if title_is_longer or description_is_longer:
+            if (title_is_longer or description_is_longer) and DO_REQUERY_OLD_OFFERS:
                 print(
                     f'Offer {offer.id} has a longer title or description than the one in the database. Re-extracting the details.'
                 )
@@ -119,4 +119,5 @@ async def main():
 
 if __name__ == '__main__':
     # to_excel(load_database(DB_FILE))
+
     asyncio.run(main())

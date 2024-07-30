@@ -57,15 +57,18 @@ class BaseScraper:
         return list(all_offer_links)
 
     async def _scrape_all_offers_from_offer_links(self, all_offer_links: list[str]) -> list[Offer]:
-        return [await self.scrape_offer_url(url) for url in tqdm(all_offer_links)]
-
         offers: list[Offer] = []
-        for batch_start in range(0, len(all_offer_links), self.offer_page_batch_size):
+        for batch_start in tqdm(
+            range(0, len(all_offer_links), self.offer_page_batch_size),
+            desc='Scraping offers',
+            unit='offers',
+            total=len(all_offer_links),
+        ):
             batch_end = min(batch_start + self.offer_page_batch_size, len(all_offer_links))
             offer_futures = [self.scrape_offer_url(url) for url in all_offer_links[batch_start:batch_end]]
             for offer in asyncio.as_completed(offer_futures):
                 with log_all_exceptions('while scraping offer'):
                     offers.append(await offer)
 
-            await asyncio.sleep(30)
+            await asyncio.sleep(1)
         return offers

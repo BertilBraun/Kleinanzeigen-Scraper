@@ -157,7 +157,9 @@ class DatabaseFactory:
             return {
                 'Price': ExcelExportType(
                     number_format='#0 €',
-                    value=parse_numeric(self.offer.price.replace('€', '').replace('VB', '').strip()),
+                    value=parse_numeric(
+                        self.offer.price.replace('€', '').replace('Euro', '').replace('VB', '').strip()
+                    ),
                 ),
                 'VB': ExcelExportType(number_format=None, value='VB' if 'VB' in self.offer.price else ''),
                 'Location': ExcelExportType(number_format=None, value=self.offer.location),

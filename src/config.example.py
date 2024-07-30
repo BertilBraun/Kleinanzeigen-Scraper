@@ -15,6 +15,7 @@ INTEREST_LOCATIONS = [
     (plz_to_lat_long(76133), 50),  # Karlsruhe 50km
 ]
 MAX_NUM_IMAGES = 3
+DO_REQUERY_OLD_OFFERS = False
 
 LLM_MODEL_ID = 'gpt-4o-mini'
 
