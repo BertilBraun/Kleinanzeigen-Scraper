@@ -190,7 +190,7 @@ Description: {offer.description}""",
                         *[
                             {
                                 'type': 'image_url',
-                                'image_url': {'url': f'data:image/png;base64,{image}', 'detail': 'auto'},
+                                'image_url': {'url': f'data:image/png;base64,{image}', 'detail': 'low'},
                             }
                             for image in base64_images
                         ],

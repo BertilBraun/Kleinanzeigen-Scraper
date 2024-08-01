@@ -59,5 +59,7 @@ async def query_api_for_lat_lon(location: str) -> tuple[float, float]:
     response = await get(f'https://api.geoapify.com/v1/geocode/search?{url_encoded_parameters}')
 
     data = json.loads(response)
+    if not data['features']:
+        return 0, 0  # return a default value which is far away from any location, so that the offer is not considered
     coords = data['features'][0]['properties']
     return coords['lat'], coords['lon']

@@ -20,6 +20,8 @@ python -m src
 
 Take a look at `data/example_export.xlsx` for an example of the exported data.
 
+If you want to scrape the websites periodically each day, on windows you can use the task scheduler and queue the job to run the script each day at a specific time. This can be done by running `.\queue_periodic_scraper.ps1` from an elevated powershell terminal.
+
 ## Costs
 
 The cost for each offer is about 0.01€-0.02€. This is due to the fact that the added images are relatively expensive, as in they require a lot of tokens ([see here](https://platform.openai.com/docs/guides/vision)).
