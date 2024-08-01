@@ -1,6 +1,5 @@
-from src.lat_long import plz_to_lat_long
-
 OPENAI_API_KEY = 'sk-your-openai-api-key'  # Your OpenAI API key here
+GEOAPIFY_API_KEY = 'your-geoapify-api-key'  # Your Geoapify API key here
 
 BASE_URL_KLEINANZEIGEN = 'https://www.kleinanzeigen.de'
 BASE_URL_DAILYDOSE = 'https://www.dailydose.de'
@@ -11,8 +10,8 @@ WINDSURF_SEARCH_URLS = [
     BASE_URL_DAILYDOSE + '/kleinanzeigen/windsurfsegel.htm?pg={}',
 ]
 INTEREST_LOCATIONS = [
-    (plz_to_lat_long(71034), 30),  # Böblingen 30km
-    (plz_to_lat_long(76133), 50),  # Karlsruhe 50km
+    (71034, 30),  # Böblingen 30km
+    (76133, 50),  # Karlsruhe 50km
 ]
 MAX_NUM_IMAGES = 3
 DO_REQUERY_OLD_OFFERS = False

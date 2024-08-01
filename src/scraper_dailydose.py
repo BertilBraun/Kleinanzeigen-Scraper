@@ -29,7 +29,7 @@ class ScraperDailyDose(BaseScraper):
 
         # Extract details from the 'Anzeigendetails' section
         details = soup.find_all('span', style='color:rgba(255,255,255,0.4)')
-        offer_price = details[0].next_sibling.replace(',-', '').replace('€', '').strip() if details else 'None'
+        offer_price = details[0].next_sibling.strip() if details else 'None'
         offer_location = details[1].next_sibling.strip() if len(details) > 1 else 'None'
         user_name = details[2].next_sibling.strip() if len(details) > 2 else 'None'
         offer_date = details[3].next_sibling.strip() if len(details) > 3 else 'None'

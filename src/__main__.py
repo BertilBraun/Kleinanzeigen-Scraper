@@ -3,11 +3,11 @@ import asyncio
 
 from src.display import to_excel
 from src.extract import extract_offer_details
-from src.lat_long import distance, extract_plz, plz_to_lat_long
 from src.scraper import BaseScraper
 from src.scraper_dailydose import ScraperDailyDose
 from src.scraper_kleinanzeigen import ScraperKleinanzeigen
 from src.config import CURRENT_OFFERS_FILE, DB_FILE, DO_REQUERY_OLD_OFFERS, INTEREST_LOCATIONS, WINDSURF_SEARCH_URLS
+from src.lat_long import distance, extract_plz, plz_to_lat_long, query_api_for_lat_lon
 from src.types import DatabaseFactory, Entry, Offer
 from src.util import dump_json, timeblock
 
@@ -60,13 +60,20 @@ async def main():
 
     filtered_new_offers: list[Offer] = []
     for offer in new_offers:
+        if not offer.location.strip():
+            print(f'Offer: {offer.title} has no location - check manually: {offer.link}')
+            continue
+
         if plz := extract_plz(offer.location):
-            # not all offers from dailydose.de have a plz in the location
             lat_lon = plz_to_lat_long(plz)
-            if any(distance(lat_lon, location) < radius for location, radius in INTEREST_LOCATIONS):
-                filtered_new_offers.append(offer)
         else:
+            # not all offers from dailydose.de have a plz in the location
             print(f'Offer: {offer.title} has no postal code ({offer.location}) - check manually: {offer.link}')
+            lat_lon = await query_api_for_lat_lon(offer.location)
+            print(f'Location: {offer.location} -> {lat_lon}')
+
+        if any(distance(lat_lon, plz_to_lat_long(location)) < radius for location, radius in INTEREST_LOCATIONS):
+            filtered_new_offers.append(offer)
 
     print(f'New offers: {len(filtered_new_offers)}')
     print(f'Old offers: {len(old_offers)}')

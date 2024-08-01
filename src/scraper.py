@@ -62,7 +62,7 @@ class BaseScraper:
             range(0, len(all_offer_links), self.offer_page_batch_size),
             desc='Scraping offers',
             unit='offers',
-            total=len(all_offer_links),
+            total=len(all_offer_links) // self.offer_page_batch_size,
         ):
             batch_end = min(batch_start + self.offer_page_batch_size, len(all_offer_links))
             offer_futures = [self.scrape_offer_url(url) for url in all_offer_links[batch_start:batch_end]]
