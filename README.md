@@ -20,7 +20,7 @@ python -m src
 
 Take a look at `data/example_export.xlsx` for an example of the exported data.
 
-If you want to scrape the websites periodically each day, on windows you can use the task scheduler and queue the job to run the script each day at a specific time. This can be done by running `.\queue_periodic_scraper.ps1` from an elevated powershell terminal.
+If you want to scrape the websites periodically each day, you can run the `periodic_scraper.ps1` script. This script will run the scraper every day at approximately 13:00. You can insert a shortcut to this script into the `shell:startup` folder to run the script every time you start your computer.
 
 ## Costs
 

@@ -6,3 +6,5 @@ src/config.py
 **.json
 /*.xlsx
 **.bak
+
+last_run_date.txt
