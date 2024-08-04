@@ -29,7 +29,7 @@ def custom_asdict(obj):
     elif isinstance(obj, Enum):
         return obj.value
     elif isinstance(obj, list) or isinstance(obj, tuple):
-        return [custom_asdict(item) for item in obj]
+        return tuple(custom_asdict(item) for item in obj)
     elif isinstance(obj, dict):
         return {key: custom_asdict(value) for key, value in obj.items()}
     elif callable(obj):
@@ -117,3 +117,27 @@ def timeblock(message: str):
         yield timer  # Allow the block to access the timer
     finally:
         print(f'Timing {message} took: {timer.elapsed_time:.3f} seconds')
+
+
+def cache_to_file(file_name: str):
+    # Wrapps a function that (optionally) returns a coroutine and caches the result to a file
+    # The parameters are thereby used as the cache key, so the function should be deterministic
+
+    def decorator(func):
+        async def wrapper(*args, **kwargs):
+            cache = {}
+            if os.path.exists(file_name):
+                with open(file_name, 'r') as f:
+                    cache = json.load(f)
+            key = json.dumps(custom_asdict((args, kwargs)))
+            if key in cache:
+                return cache[key]
+            result = await func(*args, **kwargs)
+            cache[key] = custom_asdict(result)
+            with open(file_name, 'w') as f:
+                json.dump(cache, f, indent=4)
+            return result
+
+        return wrapper
+
+    return decorator

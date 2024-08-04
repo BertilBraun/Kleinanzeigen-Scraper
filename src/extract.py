@@ -201,7 +201,9 @@ Description: {offer.description}""",
             response_format={'type': 'json_object'},
         )
     except Exception as e:
-        print('Failed to get the response:', e)
+        print(
+            f'Failed to get the response: {e} for offer: {offer.title} ({offer.link}) {offer.image_urls[:MAX_NUM_IMAGES]}'
+        )
         return DatabaseFactory.Uninteresting.from_offer(offer)
 
     try:

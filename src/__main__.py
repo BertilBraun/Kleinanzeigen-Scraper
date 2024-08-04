@@ -47,7 +47,7 @@ async def main():
     all_offers: list[Offer] = []
     ALL_SCRAPERS: list[BaseScraper] = [
         ScraperKleinanzeigen(max_pages_to_scrape=10),
-        ScraperDailyDose(max_pages_to_scrape=10),
+        ScraperDailyDose(max_pages_to_scrape=5),
     ]
     for scraper in ALL_SCRAPERS:
         all_offers.extend(await scraper.scrape_all_offers(WINDSURF_SEARCH_URLS))
@@ -68,14 +68,13 @@ async def main():
             lat_lon = plz_to_lat_long(plz)
         else:
             # not all offers from dailydose.de have a plz in the location
-            print(f'Offer: {offer.title} has no postal code ({offer.location}) - check manually: {offer.link}')
             lat_lon = await query_api_for_lat_lon(offer.location)
-            print(f'Location: {offer.location} -> {lat_lon}')
 
         if any(distance(lat_lon, plz_to_lat_long(location)) < radius for location, radius in INTEREST_LOCATIONS):
             filtered_new_offers.append(offer)
 
-    print(f'New offers: {len(filtered_new_offers)}')
+    print(f'Total new offers: {len(new_offers)}')
+    print(f'Filtered new offers: {len(filtered_new_offers)}')
     print(f'Old offers: {len(old_offers)}')
     print(f'Sold offers: {len(sold_offers)}')
 
@@ -115,13 +114,15 @@ async def main():
     path = to_excel(new_database_entries)
     print(f'Data saved to: {path}')
 
-    print('New offers:')
-    for entry in extracted_details:
-        print('-' * 30 + f' New offer: {entry.metadata.type} ' + '-' * 30)
-        for name, value in entry.to_excel().items():
-            if name not in ['All other offers', 'Date', 'Location', 'Sold', 'VB']:
-                print(f'{name}: {value.value}')
-        print('-' * 80)
+    with open(R'C:\Users\berti\OneDrive\Desktop\kleinanzeigen_scraped.txt', 'w') as f:
+        f.write(f'New Offers have been scraped and {len(new_database_entries)} have been added\n\n')
+        f.write('New offers:\n')
+        for entry in extracted_details:
+            f.write('-' * 30 + f' New offer: {entry.metadata.type} ' + '-' * 30 + '\n')
+            for name, value in entry.to_excel().items():
+                if name not in ['All other offers', 'Date', 'Location', 'Sold', 'VB']:
+                    f.write(f'{name}: {value.value}\n')
+            f.write('-' * 80 + '\n')
 
 
 if __name__ == '__main__':

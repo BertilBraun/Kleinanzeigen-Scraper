@@ -8,6 +8,7 @@ import urllib.parse
 
 from src.requests import get
 from src.config import GEOAPIFY_API_KEY
+from src.util import cache_to_file
 
 
 def extract_plz(data: str) -> int | None:
@@ -51,10 +52,15 @@ def distance(lat_lng1: tuple[float, float], lat_lng2: tuple[float, float]) -> fl
     return radius * c
 
 
+@cache_to_file('data/lat_lon_cache.json')
 async def query_api_for_lat_lon(location: str) -> tuple[float, float]:
     """Query an API to get the latitude and longitude of the location."""
     url_encoded_parameters = urllib.parse.urlencode(
-        {'text': location, 'apiKey': GEOAPIFY_API_KEY, 'filter': 'countrycode:de'}
+        {
+            'text': location,
+            'apiKey': GEOAPIFY_API_KEY,
+            'filter': 'countrycode:de,at,ch,nl,be,dk',
+        }
     )
     response = await get(f'https://api.geoapify.com/v1/geocode/search?{url_encoded_parameters}')
 

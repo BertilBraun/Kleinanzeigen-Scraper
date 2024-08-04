@@ -153,7 +153,7 @@ class DatabaseFactory:
 
         def to_excel(self) -> dict[str, ExcelExportType]:
             lat_lng = plz_to_lat_long(extract_plz(self.offer.location))
-            min_distance = min(distance(lat_lng, location) for location, _ in INTEREST_LOCATIONS)
+            min_distance = min(distance(lat_lng, plz_to_lat_long(location)) for location, _ in INTEREST_LOCATIONS)
             return {
                 'Price': ExcelExportType(
                     number_format='#0 €',
