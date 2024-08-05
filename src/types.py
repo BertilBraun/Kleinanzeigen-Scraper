@@ -4,7 +4,7 @@ from dataclasses import dataclass
 import pandas as pd
 
 from src.config import INTEREST_LOCATIONS
-from src.lat_long import distance, extract_plz, plz_to_lat_long
+from src.lat_long import distance, extract_lat_long, plz_to_lat_long
 from src.util import log_all_exceptions
 
 
@@ -151,8 +151,8 @@ class DatabaseFactory:
             offer = Offer.from_json(offer_data)
             return DatabaseFactory.Metadata(offer=offer, type=json_data['type'])
 
-        def to_excel(self) -> dict[str, ExcelExportType]:
-            lat_lng = plz_to_lat_long(extract_plz(self.offer.location))
+        async def to_excel(self) -> dict[str, ExcelExportType]:
+            lat_lng = await extract_lat_long(self.offer.location)
             min_distance = min(distance(lat_lng, plz_to_lat_long(location)) for location, _ in INTEREST_LOCATIONS)
             return {
                 'Price': ExcelExportType(
@@ -189,7 +189,7 @@ class DatabaseFactory:
         year: str
         state: str
 
-        def to_excel(self) -> dict[str, ExcelExportType]:
+        async def to_excel(self) -> dict[str, ExcelExportType]:
             return {
                 'Size': ExcelExportType(number_format='#,#0.0', value=parse_numeric(self.size)),
                 'Mast length': ExcelExportType(number_format='#0', value=parse_numeric(self.mast_length)),
@@ -197,7 +197,7 @@ class DatabaseFactory:
                 'Brand': ExcelExportType(number_format=None, value=self.brand),
                 'Year': ExcelExportType(number_format=None, value=self.year),
                 'State': ExcelExportType(number_format=None, value=self.state),
-                **self.metadata.to_excel(),
+                **(await self.metadata.to_excel()),
             }
 
     @dataclass
@@ -209,7 +209,7 @@ class DatabaseFactory:
         volume: str
         year: str
 
-        def to_excel(self) -> dict[str, ExcelExportType]:
+        async def to_excel(self) -> dict[str, ExcelExportType]:
             return {
                 'Size': ExcelExportType(number_format=None, value=self.size),
                 'Brand': ExcelExportType(number_format=None, value=self.brand),
@@ -221,7 +221,7 @@ class DatabaseFactory:
                     ),
                 ),
                 'Year': ExcelExportType(number_format=None, value=self.year),
-                **self.metadata.to_excel(),
+                **(await self.metadata.to_excel()),
             }
 
     @dataclass
@@ -232,13 +232,13 @@ class DatabaseFactory:
         carbon: str
         rdm_or_sdm: str
 
-        def to_excel(self) -> dict[str, ExcelExportType]:
+        async def to_excel(self) -> dict[str, ExcelExportType]:
             return {
                 'Brand': ExcelExportType(number_format=None, value=self.brand),
                 'Length': ExcelExportType(number_format='#0', value=parse_numeric(self.length)),
                 'Carbon': ExcelExportType(number_format='#.#0.0', value=parse_numeric(self.carbon)),
                 'RDM or SDM': ExcelExportType(number_format=None, value=self.rdm_or_sdm),
-                **self.metadata.to_excel(),
+                **(await self.metadata.to_excel()),
             }
 
     @dataclass
@@ -248,12 +248,12 @@ class DatabaseFactory:
         size: str
         year: str
 
-        def to_excel(self) -> dict[str, ExcelExportType]:
+        async def to_excel(self) -> dict[str, ExcelExportType]:
             return {
                 'Brand': ExcelExportType(number_format=None, value=self.brand),
                 'Size': ExcelExportType(number_format=None, value=self.size),
                 'Year': ExcelExportType(number_format=None, value=self.year),
-                **self.metadata.to_excel(),
+                **(await self.metadata.to_excel()),
             }
 
     @dataclass
@@ -261,10 +261,10 @@ class DatabaseFactory:
         metadata: DatabaseFactory.Metadata
         content_description: str
 
-        def to_excel(self) -> dict[str, ExcelExportType]:
+        async def to_excel(self) -> dict[str, ExcelExportType]:
             return {
                 'Content description': ExcelExportType(number_format=None, value=self.content_description),
-                **self.metadata.to_excel(),
+                **(await self.metadata.to_excel()),
             }
 
     @dataclass
@@ -274,31 +274,31 @@ class DatabaseFactory:
         mast: DatabaseFactory.Mast
         boom: DatabaseFactory.Boom
 
-        def to_excel(self) -> dict[str, ExcelExportType]:
-            sail = {f'Sail {key}': value for key, value in self.sail.to_excel().items()}
-            mast = {f'Mast {key}': value for key, value in self.mast.to_excel().items()}
-            boom = {f'Boom {key}': value for key, value in self.boom.to_excel().items()}
-            return {**sail, **mast, **boom, **self.metadata.to_excel()}
+        async def to_excel(self) -> dict[str, ExcelExportType]:
+            sail = {f'Sail {key}': value for key, value in (await self.sail.to_excel()).items()}
+            mast = {f'Mast {key}': value for key, value in (await self.mast.to_excel()).items()}
+            boom = {f'Boom {key}': value for key, value in (await self.boom.to_excel()).items()}
+            return {**sail, **mast, **boom, **(await self.metadata.to_excel())}
 
     @dataclass
     class Accessory:
         metadata: DatabaseFactory.Metadata
         accessory_type: str
 
-        def to_excel(self) -> dict[str, ExcelExportType]:
+        async def to_excel(self) -> dict[str, ExcelExportType]:
             return {
                 'Accessory type': ExcelExportType(number_format=None, value=self.accessory_type),
-                **self.metadata.to_excel(),
+                **(await self.metadata.to_excel()),
             }
 
     @dataclass
     class Uninteresting:
         metadata: DatabaseFactory.Metadata
 
-        def to_excel(self) -> dict[str, ExcelExportType]:
+        async def to_excel(self) -> dict[str, ExcelExportType]:
             return {
                 'Title': ExcelExportType(number_format=None, value=self.metadata.offer.title),
-                **self.metadata.to_excel(),
+                **(await self.metadata.to_excel()),
             }
 
         @staticmethod

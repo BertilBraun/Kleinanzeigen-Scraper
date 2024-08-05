@@ -11,6 +11,18 @@ from src.config import GEOAPIFY_API_KEY
 from src.util import cache_to_file
 
 
+async def extract_lat_long(location: str) -> tuple[float, float]:
+    """Extract the latitude and longitude from the location.
+    The location will be searched for a postal code. If a postal code is found, the latitude and longitude will be extracted from a file.
+    If no postal code is found, the location will be queried using an API to get the latitude and longitude.
+    If the location is not found in the API, the default value (0, 0) will be returned."""
+    if plz := extract_plz(location):
+        return plz_to_lat_long(plz)
+    else:
+        # not all offers (from dailydose.de) have a plz in the location
+        return await query_api_for_lat_lon(location)
+
+
 def extract_plz(data: str) -> int | None:
     """Extract the postal code from the data."""
     res = re.search(r'\d{5}', data)

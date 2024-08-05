@@ -7,7 +7,7 @@ from src.scraper import BaseScraper
 from src.scraper_dailydose import ScraperDailyDose
 from src.scraper_kleinanzeigen import ScraperKleinanzeigen
 from src.config import CURRENT_OFFERS_FILE, DB_FILE, DO_REQUERY_OLD_OFFERS, INTEREST_LOCATIONS, WINDSURF_SEARCH_URLS
-from src.lat_long import distance, extract_plz, plz_to_lat_long, query_api_for_lat_lon
+from src.lat_long import distance, extract_lat_long, plz_to_lat_long
 from src.types import DatabaseFactory, Entry, Offer
 from src.util import dump_json, timeblock
 
@@ -64,11 +64,7 @@ async def main():
             print(f'Offer: {offer.title} has no location - check manually: {offer.link}')
             continue
 
-        if plz := extract_plz(offer.location):
-            lat_lon = plz_to_lat_long(plz)
-        else:
-            # not all offers from dailydose.de have a plz in the location
-            lat_lon = await query_api_for_lat_lon(offer.location)
+        lat_lon = await extract_lat_long(offer.location)
 
         if any(distance(lat_lon, plz_to_lat_long(location)) < radius for location, radius in INTEREST_LOCATIONS):
             filtered_new_offers.append(offer)
@@ -111,7 +107,7 @@ async def main():
     new_database_entries = extracted_details + database_entries
     dump_json(new_database_entries, DB_FILE)
 
-    path = to_excel(new_database_entries)
+    path = await to_excel(new_database_entries)
     print(f'Data saved to: {path}')
 
     with open(R'C:\Users\berti\OneDrive\Desktop\kleinanzeigen_scraped.txt', 'w') as f:
@@ -119,7 +115,7 @@ async def main():
         f.write('New offers:\n')
         for entry in extracted_details:
             f.write('-' * 30 + f' New offer: {entry.metadata.type} ' + '-' * 30 + '\n')
-            for name, value in entry.to_excel().items():
+            for name, value in (await entry.to_excel()).items():
                 if name not in ['All other offers', 'Date', 'Location', 'Sold', 'VB']:
                     f.write(f'{name}: {value.value}\n')
             f.write('-' * 80 + '\n')

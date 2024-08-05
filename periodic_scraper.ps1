@@ -25,7 +25,8 @@ function Main {
         $currentHour = (Get-Date).Hour
 
         Write-Output "Current Date: $currentDate"
-        Write-Output "Yesterday's Date: $yesterdayDate"
+        Write-Output "Yesterday's Date: $yesterdayDate"        
+	Write-Output "Current Hour: $currentHour"
 
         if (Test-Path $lastRunFile) {
             $lastRunDate = Get-Content $lastRunFile
