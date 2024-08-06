@@ -18,7 +18,8 @@ async def to_excel(entries: list[Entry], path: str = 'export.xlsx') -> str:
 
     for type in 'uninteresting', 'accessory', 'full_rig', 'full_set', 'boom', 'mast', 'board', 'sail':
         entries_of_type = list_entries_of_type(entries, type)
-        entries_of_type.sort(key=lambda entry: (await entry.to_excel())['Scraped on'].value, reverse=True)
+        scraped_on_dict = {entry: (await entry.to_excel())['Scraped on'].value for entry in entries_of_type}
+        entries_of_type.sort(key=lambda entry: scraped_on_dict[entry], reverse=True)
         if entries_of_type:
             ws: Worksheet = wb.create_sheet(type.capitalize(), 0)
             await add_entries_to_worksheet(ws, entries_of_type)
