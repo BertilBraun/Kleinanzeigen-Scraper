@@ -22,15 +22,26 @@ class ScraperKleinanzeigen(BaseScraper):
         offer_id = soup.find(id='viewad-ad-id-box').find_all('li')[1].text.strip()  # type: ignore
         offer_title = soup.find(id='viewad-title').text.strip()  # type: ignore
         offer_description = soup.find(id='viewad-description-text').text.strip()  # type: ignore
-        offer_price = soup.find(id='viewad-price').text.strip()  # type: ignore
+        viewad_price = soup.find(id='viewad-price')
+        if viewad_price:
+            offer_price = viewad_price.text.strip()
+        else:
+            offer_price = 'No price'
         offer_location = soup.find(id='viewad-locality').text.strip()  # type: ignore
         offer_date = soup.find(id='viewad-extra-info').div.span.text.strip()  # type: ignore
         offer_image_urls = [img['src'] for img in soup.find_all(id='viewad-image')]
 
         # Extract user details
-        user_link = soup.find(class_='userprofile-vip').a['href']  # type: ignore
-        user_id = user_link.split('=')[-1]  # type: ignore
-        user_name = soup.find(class_='userprofile-vip').a.text.strip()  # type: ignore
+        userprofile_vip = soup.find(class_='userprofile-vip')
+        if userprofile_vip:
+            user_link = userprofile_vip.a['href']  # type: ignore
+            user_id = user_link.split('=')[-1]  # type: ignore
+            user_name = userprofile_vip.a.text.strip()  # type: ignore
+        else:
+            user_link = 'No user link'
+            user_id = 'No user id'
+            user_name = 'No user name'
+
         user_badge_tag = soup.find(class_='userbadge-tag')
         if user_badge_tag:
             user_rating = user_badge_tag.text.strip()
