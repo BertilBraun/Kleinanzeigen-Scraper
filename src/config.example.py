@@ -4,8 +4,8 @@ GEOAPIFY_API_KEY = 'your-geoapify-api-key'  # Your Geoapify API key here
 BASE_URL_KLEINANZEIGEN = 'https://www.kleinanzeigen.de'
 BASE_URL_DAILYDOSE = 'https://www.dailydose.de'
 WINDSURF_SEARCH_URLS = [
-    BASE_URL_KLEINANZEIGEN + '/s-karlsruhe/seite:{}/windsurfen/k0l9186r50',
-    BASE_URL_KLEINANZEIGEN + '/s-sindelfingen/seite:{}/windsurfen/k0l8991r30',
+    BASE_URL_KLEINANZEIGEN + '/s-karlsruhe/anzeige:angebote/seite:{}/windsurfen/k0l9186r50',
+    BASE_URL_KLEINANZEIGEN + '/s-sindelfingen/anzeige:angebote/seite:{}/windsurfen/k0l8991r30',
     BASE_URL_DAILYDOSE + '/kleinanzeigen/windsurfboards.htm?pg={}',
     BASE_URL_DAILYDOSE + '/kleinanzeigen/windsurfsegel.htm?pg={}',
 ]
