@@ -77,6 +77,12 @@ async def main():
     for entry in sold_offers:
         entry.metadata.offer.sold = True
 
+    for entry in new_offers:
+        entry.sold = False
+
+    for offer, entry in old_offers:
+        entry.metadata.offer.sold = False
+
     with timeblock('updating old offers'):
         for offer, entry in old_offers:
             title_is_longer = len(offer.title) > len(entry.metadata.offer.title)
@@ -122,6 +128,6 @@ async def main():
 
 
 if __name__ == '__main__':
-    # to_excel(load_database(DB_FILE))
+    # asyncio.run(to_excel(load_database(DB_FILE)))
 
     asyncio.run(main())

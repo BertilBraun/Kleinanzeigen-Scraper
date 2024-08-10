@@ -159,6 +159,8 @@ class DatabaseFactory:
                     number_format='#0 €',
                     value=parse_numeric(
                         self.offer.price.replace(',-', '')
+                        .replace('.-', '')
+                        .replace(',', '.')
                         .replace('€', '')
                         .replace('Euro', '')
                         .replace('VB', '')
