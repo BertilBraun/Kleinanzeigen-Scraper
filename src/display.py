@@ -66,6 +66,7 @@ async def add_entries_to_worksheet(ws: Worksheet, entries: list[Entry]) -> None:
 
     rescale_column_width('Date', 10)
     rescale_column_width('Link', 10)
+    rescale_column_width('Images', 10)
     rescale_column_width('All other offers', 20)
 
     # Apply AutoFilter to all columns
