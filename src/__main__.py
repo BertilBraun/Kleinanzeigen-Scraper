@@ -108,6 +108,7 @@ async def main():
     # extract the details of the new offers
     with timeblock('extracting the details of the new offers'):
         extracted_details = await asyncio.gather(*[extract_offer_details(offer) for offer in filtered_new_offers])
+        await BaseScraper.scrape_offer_images(filtered_new_offers, 5)
 
     # store everything in the database
     new_database_entries = extracted_details + database_entries
