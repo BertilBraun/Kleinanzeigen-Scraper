@@ -33,7 +33,7 @@ class ScraperKleinanzeigen(BaseScraper):
 
         # Extract user details
         userprofile_vip = soup.find(class_='userprofile-vip')
-        if userprofile_vip:
+        if userprofile_vip and userprofile_vip.a:  # type: ignore
             user_link = userprofile_vip.a['href']  # type: ignore
             user_id = user_link.split('=')[-1]  # type: ignore
             user_name = userprofile_vip.a.text.strip()  # type: ignore

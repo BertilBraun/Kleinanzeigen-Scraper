@@ -8,3 +8,5 @@ src/config.py
 **.bak
 
 last_run_date.txt
+
+offer_images/**

@@ -20,3 +20,4 @@ LLM_MODEL_ID = 'gpt-4o-mini'
 
 DB_FILE = 'db.json'
 CURRENT_OFFERS_FILE = 'current_offers.json'
+OFFER_IMAGE_DIR = 'offer_images'

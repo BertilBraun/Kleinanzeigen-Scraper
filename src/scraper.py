@@ -1,9 +1,12 @@
 from abc import abstractmethod
 import asyncio
 from math import ceil
+import os
 
 from tqdm import tqdm
 
+from src.config import OFFER_IMAGE_DIR
+from src.requests import get_bytes
 from src.types import Offer
 from src.util import log_all_exceptions, timeblock
 
@@ -39,6 +42,16 @@ class BaseScraper:
     async def scrape_offer_links_from_search_url(self, base_url: str) -> list[str]:
         ...
 
+    async def scrape_offer_images(self, offer: Offer) -> None:
+        offer_folder = f'{OFFER_IMAGE_DIR}/{offer.id}/'
+
+        os.makedirs(offer_folder, exist_ok=True)
+
+        for idx, image_url in enumerate(offer.image_urls):
+            image_bytes = await get_bytes(image_url)
+            with open(offer_folder + f'{idx}.jpg', 'wb') as file:
+                file.write(image_bytes)
+
     async def _scrape_all_offer_links_from_search_url(self, search_url: str) -> list[str]:
         all_offer_links: set[str] = set()
 
@@ -72,4 +85,17 @@ class BaseScraper:
                     offers.append(await offer)
 
             await asyncio.sleep(1)
+
+        for batch_start in tqdm(
+            range(0, len(all_offer_links), self.offer_page_batch_size),
+            desc='Scraping offer images',
+            unit='offer batch',
+            total=ceil(len(all_offer_links) / self.offer_page_batch_size),
+        ):
+            batch_end = min(batch_start + self.offer_page_batch_size, len(offers))
+            offer_futures = [self.scrape_offer_images(offer) for offer in offers[batch_start:batch_end]]
+            for offer in asyncio.as_completed(offer_futures):
+                with log_all_exceptions('while scraping offer images'):
+                    await offer
+
         return offers

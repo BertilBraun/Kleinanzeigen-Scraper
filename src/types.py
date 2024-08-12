@@ -1,9 +1,10 @@
 from __future__ import annotations
 from dataclasses import dataclass
+import os
 
 import pandas as pd
 
-from src.config import INTEREST_LOCATIONS
+from src.config import INTEREST_LOCATIONS, OFFER_IMAGE_DIR
 from src.lat_long import distance, extract_lat_long, plz_to_lat_long
 from src.util import log_all_exceptions
 
@@ -175,6 +176,9 @@ class DatabaseFactory:
                 ),
                 'Sold': ExcelExportType(number_format=None, value='Sold' if self.offer.sold else ''),
                 'Link': ExcelExportType(number_format=None, value=self.offer.link),
+                'Images': ExcelExportType(
+                    number_format=None, value=os.path.abspath(OFFER_IMAGE_DIR + '/' + self.offer.id)
+                ),
                 'User name': ExcelExportType(number_format=None, value=self.offer.user.name),
                 'All other offers': ExcelExportType(number_format=None, value=self.offer.user.all_offers_link),
                 'Scraped on': ExcelExportType(number_format='DD/MM/YYYY HH:MM:SS', value=self.offer.scraped_on),

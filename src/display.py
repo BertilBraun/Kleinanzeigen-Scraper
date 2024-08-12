@@ -52,7 +52,7 @@ async def add_entries_to_worksheet(ws: Worksheet, entries: list[Entry]) -> None:
                 max_lengths[col_idx - 1] = max(max_lengths[col_idx - 1], len(str(value.value)))
             if value.number_format:
                 cell.number_format = value.number_format
-            if isinstance(value.value, str) and value.value.startswith('http'):
+            if isinstance(value.value, str) and (value.value.startswith('http') or value.value.startswith('C:\\')):
                 cell.value = f'=HYPERLINK("{value.value}", "Link")'
                 cell.font = Font(color='0000FF', underline='single')
 
