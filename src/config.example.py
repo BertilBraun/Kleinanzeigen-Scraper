@@ -9,9 +9,10 @@ WINDSURF_SEARCH_URLS = [
     BASE_URL_DAILYDOSE + '/kleinanzeigen/windsurfboards.htm?pg={}',
     BASE_URL_DAILYDOSE + '/kleinanzeigen/windsurfsegel.htm?pg={}',
 ]
+# Format (PLZ, radius in km, name)
 INTEREST_LOCATIONS = [
-    (71034, 30),  # Böblingen 30km
-    (76133, 50),  # Karlsruhe 50km
+    (71034, 30, 'Böblingen'),
+    (76133, 50, 'Karlsruhe'),
 ]
 MAX_NUM_IMAGES = 3
 DO_REQUERY_OLD_OFFERS = False

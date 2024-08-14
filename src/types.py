@@ -154,7 +154,9 @@ class DatabaseFactory:
 
         async def to_excel(self) -> dict[str, ExcelExportType]:
             lat_lng = await extract_lat_long(self.offer.location)
-            min_distance = min(distance(lat_lng, plz_to_lat_long(location)) for location, _ in INTEREST_LOCATIONS)
+            min_distance, closest_place_name = min(
+                (distance(lat_lng, plz_to_lat_long(location)), name) for location, _, name in INTEREST_LOCATIONS
+            )
             return {
                 'Price': ExcelExportType(
                     number_format='#0 €',
@@ -165,10 +167,13 @@ class DatabaseFactory:
                         .replace('€', '')
                         .replace('Euro', '')
                         .replace('VB', '')
+                        .replace('VHB', '')
                         .strip()
                     ),
                 ),
-                'VB': ExcelExportType(number_format=None, value='VB' if 'VB' in self.offer.price else ''),
+                'VB': ExcelExportType(
+                    number_format=None, value='VB' if 'VB' in self.offer.price or 'VHB' in self.offer.price else ''
+                ),
                 'Location': ExcelExportType(number_format=None, value=self.offer.location),
                 'Date': ExcelExportType(
                     number_format='DD/MM/YYYY',
@@ -182,7 +187,9 @@ class DatabaseFactory:
                 'User name': ExcelExportType(number_format=None, value=self.offer.user.name),
                 'All other offers': ExcelExportType(number_format=None, value=self.offer.user.all_offers_link),
                 'Scraped on': ExcelExportType(number_format='DD/MM/YYYY HH:MM:SS', value=self.offer.scraped_on),
-                'Min Distance (km)': ExcelExportType(number_format='#0', value=min_distance),
+                'Min Distance (km)': ExcelExportType(
+                    number_format='#0', value=f'{min_distance:.2f} km to {closest_place_name}'
+                ),
             }
 
     @dataclass

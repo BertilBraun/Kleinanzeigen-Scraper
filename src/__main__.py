@@ -66,7 +66,7 @@ async def main():
 
         lat_lon = await extract_lat_long(offer.location)
 
-        if any(distance(lat_lon, plz_to_lat_long(location)) < radius for location, radius in INTEREST_LOCATIONS):
+        if any(distance(lat_lon, plz_to_lat_long(location)) < radius for location, radius, _ in INTEREST_LOCATIONS):
             filtered_new_offers.append(offer)
 
     print(f'Total new offers: {len(new_offers)}')
@@ -116,6 +116,8 @@ async def main():
 
     path = await to_excel(new_database_entries)
     print(f'Data saved to: {path}')
+
+    # TODO Liste an stuff nach denen man sucht, GPT die neuen offers und die gesuchen items geben und ihn filtern lassen, welche davon relevant sind - daraus dann eine Notification
 
     with open(R'C:\Users\berti\OneDrive\Desktop\kleinanzeigen_scraped.txt', 'w') as f:
         f.write(f'New Offers have been scraped and {len(new_database_entries)} have been added\n\n')
