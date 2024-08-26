@@ -6,7 +6,7 @@ from dataclasses import is_dataclass
 
 import pandas as pd
 
-from src.util.file_util import write_to_file
+from src.util import write_to_file
 
 
 def custom_asdict(obj):

@@ -5,7 +5,7 @@ from contextlib import contextmanager
 
 from typing import Any, Callable, Generator
 
-from src.util.json_util import custom_asdict
+from src.util import custom_asdict
 
 
 @contextmanager

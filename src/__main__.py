@@ -1,7 +1,6 @@
 import json
 import asyncio
 
-from openai import OpenAI
 
 from src.display import to_excel
 from src.extract import extract_offer_details
@@ -15,15 +14,12 @@ from src.config import (
     EMAILS_TO_NOTIFY,
     INTEREST_LOCATIONS,
     INTERESTS,
-    LLM_MODEL_ID,
-    OPENAI_API_KEY,
     WINDSURF_SEARCH_URLS,
 )
 from src.lat_long import distance, extract_lat_long, plz_to_lat_long
 from src.types import DatabaseFactory, Entry, Offer, list_entries_of_type
 from src.types_to_search import ALL_TYPES
-from src.util import dump_json, timeblock, date_str
-from src.util.mail_util import send_mail
+from src.util import timeblock, dump_json, send_mail, sync_gpt_request, date_str
 
 
 def load_database(path: str) -> list[Entry]:
@@ -123,30 +119,23 @@ async def update_old_offers(old_offers: list[tuple[Offer, Entry]]) -> None:
 
 
 def is_entry_interesting(entry: Entry, type_name: str, interest: str) -> bool:
-    client = OpenAI(api_key=OPENAI_API_KEY)
-
-    try:
-        response = client.chat.completions.create(
-            model=LLM_MODEL_ID,
-            messages=[
-                {
-                    'role': 'system',
-                    'content': 'You are a helpful assistant who is going to help me filter new windsurfing offers. Please only respond with "yes" or "no". Your job is to tell me if the offer is interesting or not.',
-                },
-                {
-                    'role': 'user',
-                    'content': f"""The following offer is a new windsurfing offer:
+    success, res = sync_gpt_request(
+        [
+            {
+                'role': 'system',
+                'content': 'You are a helpful assistant who is going to help me filter new windsurfing offers. Please only respond with "yes" or "no". Your job is to tell me if the offer is interesting or not.',
+            },
+            {
+                'role': 'user',
+                'content': f"""The following offer is a new windsurfing offer:
 {get_entry_details_readable(entry)}
 I am currently interested in the following {type_name}s: {interest}
 Reply with "yes" if the offer is interesting, otherwise reply with "no".""",
-                },
-            ],
-            temperature=0.0,
-        )
-    except Exception:
-        return False
-    res = response.choices[0].message.content
-    return res is not None and res.lower() == 'yes'
+            },
+        ]
+    )
+
+    return success and res.lower() == 'yes'
 
 
 def filter_interesting_entries_using_gpt(entries: list[Entry]) -> tuple[str, int]:

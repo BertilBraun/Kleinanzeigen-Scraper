@@ -2,12 +2,12 @@ import asyncio
 import json
 import base64
 
-from openai import AsyncOpenAI
 
 from src.requests import get_bytes
-from src.config import MAX_NUM_IMAGES, OPENAI_API_KEY, LLM_MODEL_ID
+from src.config import MAX_NUM_IMAGES
 from src.types_to_search import ALL_TYPES
 from src.types import DatabaseFactory, Entry, Offer, Uninteresting, to_readable_name
+from src.util import async_gpt_request
 
 
 def base64_encode_image(image: bytes) -> str:
@@ -119,32 +119,18 @@ Description: {offer.description}""",
 
 
 async def extract_offer_details(offer: Offer, lat_long: tuple[float, float]) -> Entry:
-    client = AsyncOpenAI(api_key=OPENAI_API_KEY)
+    success, res = await async_gpt_request(await get_extraction_prompt(offer), response_format={'type': 'json_object'})
 
-    try:
-        response = await client.chat.completions.create(
-            model=LLM_MODEL_ID,
-            messages=await get_extraction_prompt(offer),
-            temperature=0.0,
-            response_format={'type': 'json_object'},
-        )
-    except Exception as e:
-        print(
-            f'Failed to get the response: {e} for offer: {offer.title} ({offer.link}) {offer.image_urls[:MAX_NUM_IMAGES]}'
-        )
+    if not success:
+        print(f'Failed to get the response for offer: {offer.title} ({offer.link}) {offer.image_urls[:MAX_NUM_IMAGES]}')
         return Uninteresting.from_offer(offer, lat_long)
 
     try:
-        response_json = response.choices[0].message.content
-        if not response_json:
-            print('Failed to extract the details of the offer:', offer.title)
-            return Uninteresting.from_offer(offer, lat_long)
-
-        json_data = json.loads(response_json)
+        json_data = json.loads(res)
         if json_data['type'].lower() == 'n/a':
             return Uninteresting.from_offer(offer, lat_long)
 
         return DatabaseFactory.parse_parial_entry(json_data, offer, lat_long)
-    except:  # noqa
-        print('Failed to parse the JSON response:', response_json)
+    except Exception:
+        print('Failed to parse the JSON response:', res)
         return Uninteresting.from_offer(offer, lat_long)
