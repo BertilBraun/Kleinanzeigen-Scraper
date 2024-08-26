@@ -5,7 +5,7 @@ import os
 import pandas as pd
 
 from src.config import INTEREST_LOCATIONS, OFFER_IMAGE_DIR
-from src.lat_long import distance, extract_lat_long, plz_to_lat_long
+from src.lat_long import distance, plz_to_lat_long
 from src.util import log_all_exceptions
 
 
@@ -41,26 +41,26 @@ class Offer:
     user: User
 
     @staticmethod
-    def from_json(json_data: dict) -> Offer:
-        user_data = json_data.pop('user')
+    def from_json(data: dict) -> Offer:
+        user_data = data.pop('user')
         user = User.from_json(user_data)
 
-        if 'scraped_on' not in json_data:
+        if 'scraped_on' not in data:
             scraped_on = pd.Timestamp.now()
         else:
-            scraped_on = pd.to_datetime(json_data['scraped_on'], errors='ignore', dayfirst=True)
+            scraped_on = pd.to_datetime(data['scraped_on'], errors='ignore', dayfirst=True)
 
         return Offer(
             user=user,
-            id=json_data['id'],
-            title=json_data['title'],
-            description=json_data['description'],
-            price=json_data['price'],
-            location=json_data['location'],
-            date=json_data['date'],
-            link=json_data['link'],
-            sold=json_data['sold'],
-            image_urls=json_data['image_urls'],
+            id=data['id'],
+            title=data['title'],
+            description=data['description'],
+            price=data['price'],
+            location=data['location'],
+            date=data['date'],
+            link=data['link'],
+            sold=data['sold'],
+            image_urls=data['image_urls'],
             scraped_on=scraped_on,
         )
 
@@ -77,9 +77,9 @@ class DatabaseFactory:
         return DatabaseFactory._parse_entry(json_data, metadata)
 
     @staticmethod
-    def parse_parial_entry(json_data: dict, offer: Offer) -> Entry:
+    def parse_parial_entry(json_data: dict, offer: Offer, lat_long: tuple[float, float]) -> Entry:
         type = json_data.pop('type')
-        metadata = DatabaseFactory.Metadata(type=type, offer=offer)
+        metadata = DatabaseFactory.Metadata(type=type, offer=offer, lat_long=lat_long)
         return DatabaseFactory._parse_entry(json_data, metadata)
 
     @staticmethod
@@ -124,15 +124,15 @@ class DatabaseFactory:
             sail_data = json_data.pop('sail')
             if 'type' not in sail_data:
                 sail_data['type'] = 'sail'
-            sail = DatabaseFactory.parse_parial_entry(sail_data, metadata.offer)
+            sail = DatabaseFactory.parse_parial_entry(sail_data, metadata.offer, metadata.lat_long)
             mast_data = json_data.pop('mast')
             if 'type' not in mast_data:
                 mast_data['type'] = 'mast'
-            mast = DatabaseFactory.parse_parial_entry(mast_data, metadata.offer)
+            mast = DatabaseFactory.parse_parial_entry(mast_data, metadata.offer, metadata.lat_long)
             boom_data = json_data.pop('boom')
             if 'type' not in boom_data:
                 boom_data['type'] = 'boom'
-            boom = DatabaseFactory.parse_parial_entry(boom_data, metadata.offer)
+            boom = DatabaseFactory.parse_parial_entry(boom_data, metadata.offer, metadata.lat_long)
             return DatabaseFactory.FullRig(metadata=metadata, sail=sail, mast=mast, boom=boom)  # type: ignore
         elif metadata.type == 'accessory':
             return DatabaseFactory.Accessory(metadata=metadata, accessory_type=json_data['accessory_type'])
@@ -145,17 +145,16 @@ class DatabaseFactory:
     class Metadata:
         type: str
         offer: Offer
+        lat_long: tuple[float, float]
 
         @staticmethod
         def from_json(json_data: dict) -> DatabaseFactory.Metadata:
-            offer_data = json_data.pop('offer')
-            offer = Offer.from_json(offer_data)
-            return DatabaseFactory.Metadata(offer=offer, type=json_data['type'])
+            offer = Offer.from_json(json_data['offer'])
+            return DatabaseFactory.Metadata(offer=offer, type=json_data['type'], lat_long=json_data['lat_long'])
 
-        async def to_excel(self) -> dict[str, ExcelExportType]:
-            lat_lng = await extract_lat_long(self.offer.location)
+        def to_excel(self) -> dict[str, ExcelExportType]:
             min_distance, closest_place_name = min(
-                (distance(lat_lng, plz_to_lat_long(location)), name) for location, _, name in INTEREST_LOCATIONS
+                (distance(self.lat_long, plz_to_lat_long(location)), name) for location, _, name in INTEREST_LOCATIONS
             )
             return {
                 'Price': ExcelExportType(
@@ -202,7 +201,7 @@ class DatabaseFactory:
         year: str
         state: str
 
-        async def to_excel(self) -> dict[str, ExcelExportType]:
+        def to_excel(self) -> dict[str, ExcelExportType]:
             return {
                 'Size': ExcelExportType(number_format='#,#0.0', value=parse_numeric(self.size)),
                 'Mast length': ExcelExportType(number_format='#0', value=parse_numeric(self.mast_length)),
@@ -210,7 +209,7 @@ class DatabaseFactory:
                 'Brand': ExcelExportType(number_format=None, value=self.brand),
                 'Year': ExcelExportType(number_format=None, value=self.year),
                 'State': ExcelExportType(number_format=None, value=self.state),
-                **(await self.metadata.to_excel()),
+                **self.metadata.to_excel(),
             }
 
     @dataclass
@@ -222,7 +221,7 @@ class DatabaseFactory:
         volume: str
         year: str
 
-        async def to_excel(self) -> dict[str, ExcelExportType]:
+        def to_excel(self) -> dict[str, ExcelExportType]:
             return {
                 'Size': ExcelExportType(number_format=None, value=self.size),
                 'Brand': ExcelExportType(number_format=None, value=self.brand),
@@ -234,7 +233,7 @@ class DatabaseFactory:
                     ),
                 ),
                 'Year': ExcelExportType(number_format=None, value=self.year),
-                **(await self.metadata.to_excel()),
+                **self.metadata.to_excel(),
             }
 
     @dataclass
@@ -245,13 +244,13 @@ class DatabaseFactory:
         carbon: str
         rdm_or_sdm: str
 
-        async def to_excel(self) -> dict[str, ExcelExportType]:
+        def to_excel(self) -> dict[str, ExcelExportType]:
             return {
                 'Brand': ExcelExportType(number_format=None, value=self.brand),
                 'Length': ExcelExportType(number_format='#0', value=parse_numeric(self.length)),
                 'Carbon': ExcelExportType(number_format='#.#0.0', value=parse_numeric(self.carbon)),
                 'RDM or SDM': ExcelExportType(number_format=None, value=self.rdm_or_sdm),
-                **(await self.metadata.to_excel()),
+                **self.metadata.to_excel(),
             }
 
     @dataclass
@@ -261,12 +260,12 @@ class DatabaseFactory:
         size: str
         year: str
 
-        async def to_excel(self) -> dict[str, ExcelExportType]:
+        def to_excel(self) -> dict[str, ExcelExportType]:
             return {
                 'Brand': ExcelExportType(number_format=None, value=self.brand),
                 'Size': ExcelExportType(number_format=None, value=self.size),
                 'Year': ExcelExportType(number_format=None, value=self.year),
-                **(await self.metadata.to_excel()),
+                **self.metadata.to_excel(),
             }
 
     @dataclass
@@ -274,10 +273,10 @@ class DatabaseFactory:
         metadata: DatabaseFactory.Metadata
         content_description: str
 
-        async def to_excel(self) -> dict[str, ExcelExportType]:
+        def to_excel(self) -> dict[str, ExcelExportType]:
             return {
                 'Content description': ExcelExportType(number_format=None, value=self.content_description),
-                **(await self.metadata.to_excel()),
+                **self.metadata.to_excel(),
             }
 
     @dataclass
@@ -287,36 +286,38 @@ class DatabaseFactory:
         mast: DatabaseFactory.Mast
         boom: DatabaseFactory.Boom
 
-        async def to_excel(self) -> dict[str, ExcelExportType]:
-            sail = {f'Sail {key}': value for key, value in (await self.sail.to_excel()).items()}
-            mast = {f'Mast {key}': value for key, value in (await self.mast.to_excel()).items()}
-            boom = {f'Boom {key}': value for key, value in (await self.boom.to_excel()).items()}
-            return {**sail, **mast, **boom, **(await self.metadata.to_excel())}
+        def to_excel(self) -> dict[str, ExcelExportType]:
+            sail = {f'Sail {key}': value for key, value in self.sail.to_excel().items()}
+            mast = {f'Mast {key}': value for key, value in self.mast.to_excel().items()}
+            boom = {f'Boom {key}': value for key, value in self.boom.to_excel().items()}
+            return {**sail, **mast, **boom, **self.metadata.to_excel()}
 
     @dataclass
     class Accessory:
         metadata: DatabaseFactory.Metadata
         accessory_type: str
 
-        async def to_excel(self) -> dict[str, ExcelExportType]:
+        def to_excel(self) -> dict[str, ExcelExportType]:
             return {
                 'Accessory type': ExcelExportType(number_format=None, value=self.accessory_type),
-                **(await self.metadata.to_excel()),
+                **self.metadata.to_excel(),
             }
 
     @dataclass
     class Uninteresting:
         metadata: DatabaseFactory.Metadata
 
-        async def to_excel(self) -> dict[str, ExcelExportType]:
+        def to_excel(self) -> dict[str, ExcelExportType]:
             return {
                 'Title': ExcelExportType(number_format=None, value=self.metadata.offer.title),
-                **(await self.metadata.to_excel()),
+                **self.metadata.to_excel(),
             }
 
         @staticmethod
-        def from_offer(offer: Offer) -> DatabaseFactory.Uninteresting:
-            return DatabaseFactory.Uninteresting(metadata=DatabaseFactory.Metadata(type='uninteresting', offer=offer))
+        def from_offer(offer: Offer, lat_long: tuple[float, float]) -> DatabaseFactory.Uninteresting:
+            return DatabaseFactory.Uninteresting(
+                metadata=DatabaseFactory.Metadata(type='uninteresting', offer=offer, lat_long=lat_long)
+            )
 
 
 Entry = (

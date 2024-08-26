@@ -58,16 +58,16 @@ async def main():
 
     new_offers, old_offers, sold_offers = partition_offers(all_offers, database_entries)
 
-    filtered_new_offers: list[Offer] = []
+    filtered_new_offers: list[tuple[Offer, tuple[float, float]]] = []
     for offer in new_offers:
         if not offer.location.strip():
             print(f'Offer: {offer.title} has no location - check manually: {offer.link}')
             continue
 
-        lat_lon = await extract_lat_long(offer.location)
+        lat_long = await extract_lat_long(offer.location)
 
-        if any(distance(lat_lon, plz_to_lat_long(location)) < radius for location, radius, _ in INTEREST_LOCATIONS):
-            filtered_new_offers.append(offer)
+        if any(distance(lat_long, plz_to_lat_long(location)) < radius for location, radius, _ in INTEREST_LOCATIONS):
+            filtered_new_offers.append((offer, lat_long))
 
     print(f'Total new offers: {len(new_offers)}')
     print(f'Filtered new offers: {len(filtered_new_offers)}')
@@ -98,7 +98,7 @@ async def main():
                     print(f'Old description: {entry.metadata.offer.description}')
                     print(f'New description: {offer.description}')
                 # reextract the offer details via llm
-                new_entry_details = await extract_offer_details(offer)
+                new_entry_details = await extract_offer_details(offer, entry.metadata.lat_long)
                 for key, value in new_entry_details.__dict__.items():
                     setattr(entry, key, value)
             # update the entry in the database
@@ -107,14 +107,16 @@ async def main():
 
     # extract the details of the new offers
     with timeblock('extracting the details of the new offers'):
-        extracted_details = await asyncio.gather(*[extract_offer_details(offer) for offer in filtered_new_offers])
-        await BaseScraper.scrape_offer_images(filtered_new_offers, 5)
+        extracted_details = await asyncio.gather(
+            *[extract_offer_details(offer, lat_long) for offer, lat_long in filtered_new_offers]
+        )
+        await BaseScraper.scrape_offer_images([offer for offer, _ in filtered_new_offers], 5)
 
     # store everything in the database
     new_database_entries = extracted_details + database_entries
     dump_json(new_database_entries, DB_FILE)
 
-    path = await to_excel(new_database_entries)
+    path = to_excel(new_database_entries)
     print(f'Data saved to: {path}')
 
     # TODO Liste an stuff nach denen man sucht, GPT die neuen offers und die gesuchen items geben und ihn filtern lassen, welche davon relevant sind - daraus dann eine Notification
@@ -124,13 +126,13 @@ async def main():
         f.write('New offers:\n')
         for entry in extracted_details:
             f.write('-' * 30 + f' New offer: {entry.metadata.type} ' + '-' * 30 + '\n')
-            for name, value in (await entry.to_excel()).items():
+            for name, value in entry.to_excel().items():
                 if name not in ['All other offers', 'Date', 'Location', 'Sold', 'VB']:
                     f.write(f'{name}: {value.value}\n')
             f.write('-' * 80 + '\n')
 
 
 if __name__ == '__main__':
-    # asyncio.run(to_excel(load_database(DB_FILE)))
+    # to_excel(load_database(DB_FILE))
 
     asyncio.run(main())

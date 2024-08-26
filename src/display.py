@@ -10,7 +10,7 @@ def list_entries_of_type(entries: list[Entry], type: str) -> list[Entry]:
     return [entry for entry in entries if entry.metadata.type == type]
 
 
-async def to_excel(entries: list[Entry], path: str = 'export.xlsx') -> str:
+def to_excel(entries: list[Entry], path: str = 'export.xlsx') -> str:
     wb = Workbook()
     # Remove the default sheet
     if wb.active:
@@ -18,13 +18,11 @@ async def to_excel(entries: list[Entry], path: str = 'export.xlsx') -> str:
 
     for type in 'uninteresting', 'accessory', 'full_rig', 'full_set', 'boom', 'mast', 'board', 'sail':
         entries_of_type = list_entries_of_type(entries, type)
-        scraped_on_dict = {
-            entry.metadata.offer.link: (await entry.to_excel())['Scraped on'].value for entry in entries_of_type
-        }
+        scraped_on_dict = {entry.metadata.offer.link: entry.to_excel()['Scraped on'].value for entry in entries_of_type}
         entries_of_type.sort(key=lambda entry: scraped_on_dict[entry.metadata.offer.link], reverse=True)
         if entries_of_type:
             ws: Worksheet = wb.create_sheet(type.capitalize(), 0)
-            await add_entries_to_worksheet(ws, entries_of_type)
+            add_entries_to_worksheet(ws, entries_of_type)
 
     # Save the workbook
     wb.save(path)
@@ -32,10 +30,10 @@ async def to_excel(entries: list[Entry], path: str = 'export.xlsx') -> str:
     return path
 
 
-async def add_entries_to_worksheet(ws: Worksheet, entries: list[Entry]) -> None:
+def add_entries_to_worksheet(ws: Worksheet, entries: list[Entry]) -> None:
     assert len(entries) > 0, 'We need at least one entry to create an Excel sheet'
 
-    headers = list((await entries[0].to_excel()).keys())
+    headers = list(entries[0].to_excel().keys())
     ws.append(headers)
     for cell in ws[1]:
         cell.font = Font(bold=True)
@@ -43,7 +41,7 @@ async def add_entries_to_worksheet(ws: Worksheet, entries: list[Entry]) -> None:
     max_lengths = [len(header) for header in headers]
 
     for row_idx, entry in enumerate(entries, 2):
-        for col_idx, value in enumerate((await entry.to_excel()).values(), 1):
+        for col_idx, value in enumerate(entry.to_excel().values(), 1):
             cell = ws.cell(row=row_idx, column=col_idx)
             cell.value = value.value
             if isinstance(value.value, float):

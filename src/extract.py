@@ -24,7 +24,7 @@ async def download_and_convert_images(image_urls: list[str]) -> list[str]:
     return [base64_encode_image(image) for image in image_bytes]
 
 
-async def extract_offer_details(offer: Offer) -> Entry:
+async def extract_offer_details(offer: Offer, lat_long: tuple[float, float]) -> Entry:
     client = AsyncOpenAI(api_key=OPENAI_API_KEY)
 
     base64_example_image = get_example_image()
@@ -204,19 +204,19 @@ Description: {offer.description}""",
         print(
             f'Failed to get the response: {e} for offer: {offer.title} ({offer.link}) {offer.image_urls[:MAX_NUM_IMAGES]}'
         )
-        return DatabaseFactory.Uninteresting.from_offer(offer)
+        return DatabaseFactory.Uninteresting.from_offer(offer, lat_long)
 
     try:
         response_json = response.choices[0].message.content
         if not response_json:
             print('Failed to extract the details of the offer:', offer.title)
-            return DatabaseFactory.Uninteresting.from_offer(offer)
+            return DatabaseFactory.Uninteresting.from_offer(offer, lat_long)
 
         json_data = json.loads(response_json)
         if json_data['type'] == 'N/A':
-            return DatabaseFactory.Uninteresting.from_offer(offer)
+            return DatabaseFactory.Uninteresting.from_offer(offer, lat_long)
 
-        return DatabaseFactory.parse_parial_entry(json_data, offer)
+        return DatabaseFactory.parse_parial_entry(json_data, offer, lat_long)
     except:  # noqa
         print('Failed to parse the JSON response:', response_json)
-        return DatabaseFactory.Uninteresting.from_offer(offer)
+        return DatabaseFactory.Uninteresting.from_offer(offer, lat_long)
