@@ -6,7 +6,8 @@ from openai import AsyncOpenAI
 
 from src.requests import get_bytes
 from src.config import MAX_NUM_IMAGES, OPENAI_API_KEY, LLM_MODEL_ID
-from src.types import DatabaseFactory, Entry, Offer
+from src.types_to_search import ALL_TYPES
+from src.types import DatabaseFactory, Entry, Offer, Uninteresting, to_readable_name
 
 
 def base64_encode_image(image: bytes) -> str:
@@ -24,6 +25,24 @@ async def download_and_convert_images(image_urls: list[str]) -> list[str]:
     return [base64_encode_image(image) for image in image_bytes]
 
 
+def get_type_descriptions() -> str:
+    all_names = [to_readable_name(t.__name__) for t in ALL_TYPES]
+    all_type_names = ', '.join(all_names[:-1]) + ' and ' + all_names[-1]
+
+    all_type_descriptions = ''
+
+    for name, type_ in zip(all_names, ALL_TYPES):
+        all_type_descriptions += f'{name}:\n```json\n{type_.generate_json_description()}\n```\n\n\n'
+
+    return f"""The types of equipment include {all_type_names}. 
+
+If the information is not available or cannot be determined from the input, use "".
+
+You should output the information in the following JSON format based on the type of equipment:
+
+{all_type_descriptions}"""
+
+
 async def extract_offer_details(offer: Offer, lat_long: tuple[float, float]) -> Entry:
     client = AsyncOpenAI(api_key=OPENAI_API_KEY)
 
@@ -36,110 +55,15 @@ async def extract_offer_details(offer: Offer, lat_long: tuple[float, float]) -> 
             messages=[
                 {
                     'role': 'system',
-                    'content': """You are a helpful assistant that extracts information from eBay Kleinanzeigen related to Windsurf equipment and converts it into a specific JSON format. The types of equipment include sails, boards, masts, booms, full sets, full rigs, and accessories. 
-
-If the information is not available or cannot be determined from the input, use "".
-
-You should output the information in the following JSON format based on the type of equipment:
-
-Sail:
-```json
-{
-  "type": "sail",
-  "size": "Size of the Sail in m²",
-  "brand": "Name of the Brand and Model",
-  "mast_length": "Length of the required Mast in cm",
-  "boom_size": "Size of the required Boom in cm",
-  "year": "Release Year",
-  "state": "new, used, repaired, demaged, defective"
-}
-```
-
-Board:
-```json
-{
-  "type": "board",
-  "size": "Dimensions of the Board",
-  "brand": "Name of the Brand and Model",
-  "board_type": "Freeride, Wave, Freestyle, Slalom, Formula, ...",
-  "volume": "Volume in Liters",
-  "year": "Release Year"
-}
-```
-
-Mast:
-```json
-{
-  "type": "mast",
-  "brand": "Name of the Brand and Model",
-  "length": "Length of the Mast in cm",
-  "carbon": "Carbon Percentage",
-  "rdm_or_sdm": "Either RDM or SDM"
-}
-```
-
-Boom:
-```json
-{
-  "type": "boom",
-  "brand": "Name of the Brand and Model",
-  "size": "Minimum and Maximum Size of the Boom in cm",
-  "year": "Release Year"
-}
-```
-
-Full Set:
-```json
-{
-  "type": "full_set",
-  "content_description": "Short description of what the set includes (e.g., Sail, Mast, Boom, Board, etc.)"
-}
-```
-
-Full Rig:
-```json
-{
-  "type": "full_rig",
-  "sail": {
-    "type": "sail",
-    "size": "Size of the Sail in m²",
-    "brand": "Name of the Brand and Model",
-    "mast_length": "Length of the required Mast in cm",
-    "boom_size": "Size of the required Boom in cm",
-    "year": "Release Year",
-    "state": "new, used, repaired, demaged, defective"
-  },
-  "mast": {
-    "type": "mast",
-    "brand": "Name of the Brand and Model",
-    "length": "Length of the Mast in cm",
-    "carbon": "Carbon Percentage",
-    "rdm_or_sdm": "Either RDM or SDM"
-  },
-  "boom": {
-    "type": "boom",
-    "brand": "Name of the Brand and Model",
-    "size": "Minimum and Maximum Size of the Boom in cm",
-    "year": "Release Year"
-  }
-}
-```
-
-Accessory:
-```json
-{
-  "type": "accessory",
-  "accessory_type": "Mastfoot, Mast extension, Harness Lines, Fins, etc.",
-}
-```
+                    'content': f"""You are a helpful assistant that extracts information from offers related to Windsurf equipment and converts it into a specific JSON format. {get_type_descriptions()}
 
 If the type of equipment cannot be determined or is not relevant to usable windsurf equipment, use:
 ```json
-{
+{{
   "type": "N/A"
-}
+}}
 ```
-This will be for items like child equipment, courses, toys, etc. which are not relevant to windsurfing.
+This will be for items like child equipment, courses, toys, display figures, etc. which are not relevant to windsurfing.
 
 """,
                 },
@@ -204,19 +128,19 @@ Description: {offer.description}""",
         print(
             f'Failed to get the response: {e} for offer: {offer.title} ({offer.link}) {offer.image_urls[:MAX_NUM_IMAGES]}'
         )
-        return DatabaseFactory.Uninteresting.from_offer(offer, lat_long)
+        return Uninteresting.from_offer(offer, lat_long)
 
     try:
         response_json = response.choices[0].message.content
         if not response_json:
             print('Failed to extract the details of the offer:', offer.title)
-            return DatabaseFactory.Uninteresting.from_offer(offer, lat_long)
+            return Uninteresting.from_offer(offer, lat_long)
 
         json_data = json.loads(response_json)
-        if json_data['type'] == 'N/A':
-            return DatabaseFactory.Uninteresting.from_offer(offer, lat_long)
+        if json_data['type'] and json_data['type'].lower() == 'n/a':
+            return Uninteresting.from_offer(offer, lat_long)
 
         return DatabaseFactory.parse_parial_entry(json_data, offer, lat_long)
     except:  # noqa
         print('Failed to parse the JSON response:', response_json)
-        return DatabaseFactory.Uninteresting.from_offer(offer, lat_long)
+        return Uninteresting.from_offer(offer, lat_long)

@@ -1,12 +1,23 @@
 from __future__ import annotations
-from dataclasses import dataclass
 import os
+import json
 
 import pandas as pd
 
+from dataclasses import Field, dataclass, field, fields
+from typing import Callable
+
+
 from src.config import INTEREST_LOCATIONS, OFFER_IMAGE_DIR
 from src.lat_long import distance, plz_to_lat_long
-from src.util import log_all_exceptions
+from src.types_to_search import ALL_TYPES
+from src.util import log_all_exceptions, to_lower_snake_case, parse_numeric, to_readable_name, overrides
+
+
+@dataclass
+class ExcelExportType:
+    number_format: str | None
+    value: str | float | pd.Timestamp
 
 
 @dataclass
@@ -73,273 +84,136 @@ class DatabaseFactory:
 
     @staticmethod
     def parse_entry(json_data: dict) -> Entry:
-        metadata = DatabaseFactory.Metadata.from_json(json_data.pop('metadata'))
+        metadata = Metadata.from_json(json_data.pop('metadata'))
         return DatabaseFactory._parse_entry(json_data, metadata)
 
     @staticmethod
     def parse_parial_entry(json_data: dict, offer: Offer, lat_long: tuple[float, float]) -> Entry:
         type = json_data.pop('type')
-        metadata = DatabaseFactory.Metadata(type=type, offer=offer, lat_long=lat_long)
+        metadata = Metadata(type=type, offer=offer, lat_long=lat_long)
         return DatabaseFactory._parse_entry(json_data, metadata)
 
     @staticmethod
-    def _parse_entry(json_data: dict, metadata: DatabaseFactory.Metadata) -> Entry:
-        if metadata.type == 'sail':
-            return DatabaseFactory.Sail(
-                metadata=metadata,
-                size=json_data['size'],
-                brand=json_data['brand'],
-                mast_length=json_data['mast_length'],
-                boom_size=json_data['boom_size'],
-                year=json_data['year'],
-                state=json_data['state'],
-            )
-        elif metadata.type == 'board':
-            return DatabaseFactory.Board(
-                metadata=metadata,
-                size=json_data['size'],
-                brand=json_data['brand'],
-                board_type=json_data['board_type'],
-                volume=json_data['volume'],
-                year=json_data['year'],
-            )
-        elif metadata.type == 'mast':
-            return DatabaseFactory.Mast(
-                metadata=metadata,
-                brand=json_data['brand'],
-                length=json_data['length'],
-                carbon=json_data['carbon'],
-                rdm_or_sdm=json_data['rdm_or_sdm'],
-            )
-        elif metadata.type == 'boom':
-            return DatabaseFactory.Boom(
-                metadata=metadata,
-                brand=json_data['brand'],
-                size=json_data['size'],
-                year=json_data['year'],
-            )
-        elif metadata.type == 'full_set':
-            return DatabaseFactory.FullSet(metadata=metadata, content_description=json_data['content_description'])
-        elif metadata.type == 'full_rig':
-            sail_data = json_data.pop('sail')
-            if 'type' not in sail_data:
-                sail_data['type'] = 'sail'
-            sail = DatabaseFactory.parse_parial_entry(sail_data, metadata.offer, metadata.lat_long)
-            mast_data = json_data.pop('mast')
-            if 'type' not in mast_data:
-                mast_data['type'] = 'mast'
-            mast = DatabaseFactory.parse_parial_entry(mast_data, metadata.offer, metadata.lat_long)
-            boom_data = json_data.pop('boom')
-            if 'type' not in boom_data:
-                boom_data['type'] = 'boom'
-            boom = DatabaseFactory.parse_parial_entry(boom_data, metadata.offer, metadata.lat_long)
-            return DatabaseFactory.FullRig(metadata=metadata, sail=sail, mast=mast, boom=boom)  # type: ignore
-        elif metadata.type == 'accessory':
-            return DatabaseFactory.Accessory(metadata=metadata, accessory_type=json_data['accessory_type'])
-        elif metadata.type == 'uninteresting':
-            return DatabaseFactory.Uninteresting(metadata=metadata)
-        else:
-            raise ValueError(f'Unknown type: {metadata.type}')
+    def _parse_entry(json_data: dict, metadata: Metadata) -> Entry:
+        for type_ in ALL_TYPES + [Uninteresting]:
+            if to_lower_snake_case(type_.__name__) == metadata.type:
+                return type_.from_json(metadata=metadata, json_data=json_data)
 
-    @dataclass
-    class Metadata:
-        type: str
-        offer: Offer
-        lat_long: tuple[float, float]
-
-        @staticmethod
-        def from_json(json_data: dict) -> DatabaseFactory.Metadata:
-            offer = Offer.from_json(json_data['offer'])
-            return DatabaseFactory.Metadata(offer=offer, type=json_data['type'], lat_long=json_data['lat_long'])
-
-        def to_excel(self) -> dict[str, ExcelExportType]:
-            min_distance, closest_place_name = min(
-                (distance(self.lat_long, plz_to_lat_long(location)), name) for location, _, name in INTEREST_LOCATIONS
-            )
-            return {
-                'Price': ExcelExportType(
-                    number_format='#0 €',
-                    value=parse_numeric(
-                        self.offer.price.replace(',-', '')
-                        .replace('.-', '')
-                        .replace(',', '.')
-                        .replace('€', '')
-                        .replace('Euro', '')
-                        .replace('VB', '')
-                        .replace('VHB', '')
-                        .strip()
-                    ),
-                ),
-                'VB': ExcelExportType(
-                    number_format=None, value='VB' if 'VB' in self.offer.price or 'VHB' in self.offer.price else ''
-                ),
-                'Location': ExcelExportType(number_format=None, value=self.offer.location),
-                'Date': ExcelExportType(
-                    number_format='DD/MM/YYYY',
-                    value=pd.to_datetime(self.offer.date, errors='ignore', dayfirst=True),
-                ),
-                'Sold': ExcelExportType(number_format=None, value='Sold' if self.offer.sold else ''),
-                'Link': ExcelExportType(number_format=None, value=self.offer.link),
-                'Images': ExcelExportType(
-                    number_format=None, value=os.path.abspath(OFFER_IMAGE_DIR + '/' + self.offer.id)
-                ),
-                'User name': ExcelExportType(number_format=None, value=self.offer.user.name),
-                'All other offers': ExcelExportType(number_format=None, value=self.offer.user.all_offers_link),
-                'Scraped on': ExcelExportType(number_format='DD/MM/YYYY HH:MM:SS', value=self.offer.scraped_on),
-                'Min Distance (km)': ExcelExportType(
-                    number_format='#0', value=f'{min_distance:.2f} km to {closest_place_name}'
-                ),
-            }
-
-    @dataclass
-    class Sail:
-        metadata: DatabaseFactory.Metadata
-        size: str
-        brand: str
-        mast_length: str
-        boom_size: str
-        year: str
-        state: str
-
-        def to_excel(self) -> dict[str, ExcelExportType]:
-            return {
-                'Size': ExcelExportType(number_format='#,#0.0', value=parse_numeric(self.size)),
-                'Mast length': ExcelExportType(number_format='#0', value=parse_numeric(self.mast_length)),
-                'Boom size': ExcelExportType(number_format='#0', value=parse_numeric(self.boom_size)),
-                'Brand': ExcelExportType(number_format=None, value=self.brand),
-                'Year': ExcelExportType(number_format=None, value=self.year),
-                'State': ExcelExportType(number_format=None, value=self.state),
-                **self.metadata.to_excel(),
-            }
-
-    @dataclass
-    class Board:
-        metadata: DatabaseFactory.Metadata
-        size: str
-        brand: str
-        board_type: str
-        volume: str
-        year: str
-
-        def to_excel(self) -> dict[str, ExcelExportType]:
-            return {
-                'Size': ExcelExportType(number_format=None, value=self.size),
-                'Brand': ExcelExportType(number_format=None, value=self.brand),
-                'Board type': ExcelExportType(number_format=None, value=self.board_type),
-                'Volume': ExcelExportType(
-                    number_format='#0',
-                    value=parse_numeric(
-                        self.volume.lower().replace('liters', '').replace('liter', '').replace('l', '').strip()
-                    ),
-                ),
-                'Year': ExcelExportType(number_format=None, value=self.year),
-                **self.metadata.to_excel(),
-            }
-
-    @dataclass
-    class Mast:
-        metadata: DatabaseFactory.Metadata
-        brand: str
-        length: str
-        carbon: str
-        rdm_or_sdm: str
-
-        def to_excel(self) -> dict[str, ExcelExportType]:
-            return {
-                'Brand': ExcelExportType(number_format=None, value=self.brand),
-                'Length': ExcelExportType(number_format='#0', value=parse_numeric(self.length)),
-                'Carbon': ExcelExportType(number_format='#.#0.0', value=parse_numeric(self.carbon)),
-                'RDM or SDM': ExcelExportType(number_format=None, value=self.rdm_or_sdm),
-                **self.metadata.to_excel(),
-            }
-
-    @dataclass
-    class Boom:
-        metadata: DatabaseFactory.Metadata
-        brand: str
-        size: str
-        year: str
-
-        def to_excel(self) -> dict[str, ExcelExportType]:
-            return {
-                'Brand': ExcelExportType(number_format=None, value=self.brand),
-                'Size': ExcelExportType(number_format=None, value=self.size),
-                'Year': ExcelExportType(number_format=None, value=self.year),
-                **self.metadata.to_excel(),
-            }
-
-    @dataclass
-    class FullSet:
-        metadata: DatabaseFactory.Metadata
-        content_description: str
-
-        def to_excel(self) -> dict[str, ExcelExportType]:
-            return {
-                'Content description': ExcelExportType(number_format=None, value=self.content_description),
-                **self.metadata.to_excel(),
-            }
-
-    @dataclass
-    class FullRig:
-        metadata: DatabaseFactory.Metadata
-        sail: DatabaseFactory.Sail
-        mast: DatabaseFactory.Mast
-        boom: DatabaseFactory.Boom
-
-        def to_excel(self) -> dict[str, ExcelExportType]:
-            sail = {f'Sail {key}': value for key, value in self.sail.to_excel().items()}
-            mast = {f'Mast {key}': value for key, value in self.mast.to_excel().items()}
-            boom = {f'Boom {key}': value for key, value in self.boom.to_excel().items()}
-            return {**sail, **mast, **boom, **self.metadata.to_excel()}
-
-    @dataclass
-    class Accessory:
-        metadata: DatabaseFactory.Metadata
-        accessory_type: str
-
-        def to_excel(self) -> dict[str, ExcelExportType]:
-            return {
-                'Accessory type': ExcelExportType(number_format=None, value=self.accessory_type),
-                **self.metadata.to_excel(),
-            }
-
-    @dataclass
-    class Uninteresting:
-        metadata: DatabaseFactory.Metadata
-
-        def to_excel(self) -> dict[str, ExcelExportType]:
-            return {
-                'Title': ExcelExportType(number_format=None, value=self.metadata.offer.title),
-                **self.metadata.to_excel(),
-            }
-
-        @staticmethod
-        def from_offer(offer: Offer, lat_long: tuple[float, float]) -> DatabaseFactory.Uninteresting:
-            return DatabaseFactory.Uninteresting(
-                metadata=DatabaseFactory.Metadata(type='uninteresting', offer=offer, lat_long=lat_long)
-            )
-
-
-Entry = (
-    DatabaseFactory.Sail
-    | DatabaseFactory.Board
-    | DatabaseFactory.Mast
-    | DatabaseFactory.Boom
-    | DatabaseFactory.FullSet
-    | DatabaseFactory.FullRig
-    | DatabaseFactory.Accessory
-    | DatabaseFactory.Uninteresting
-)
-
-
-def parse_numeric(value: str) -> float | str:
-    try:
-        return float(value)
-    except ValueError:
-        return value
+        raise ValueError(f'Unknown type: {metadata.type}')
 
 
 @dataclass
-class ExcelExportType:
-    number_format: str | None
-    value: str | float | pd.Timestamp
+class Metadata:
+    type: str
+    offer: Offer
+    lat_long: tuple[float, float]
+
+    @staticmethod
+    def from_json(json_data: dict) -> Metadata:
+        offer = Offer.from_json(json_data['offer'])
+        return Metadata(offer=offer, type=json_data['type'], lat_long=json_data['lat_long'])
+
+    def to_excel(self) -> dict[str, ExcelExportType]:
+        min_distance, closest_place_name = min(
+            (distance(self.lat_long, plz_to_lat_long(location)), name) for location, _, name in INTEREST_LOCATIONS
+        )
+        return {
+            'Price': ExcelExportType(
+                number_format='#0 €',
+                value=parse_numeric(
+                    self.offer.price.replace(',-', '')
+                    .replace('.-', '')
+                    .replace(',', '.')
+                    .replace('€', '')
+                    .replace('Euro', '')
+                    .replace('VB', '')
+                    .replace('VHB', '')
+                    .strip()
+                ),
+            ),
+            'VB': ExcelExportType(
+                number_format=None, value='VB' if 'VB' in self.offer.price or 'VHB' in self.offer.price else ''
+            ),
+            'Location': ExcelExportType(number_format=None, value=self.offer.location),
+            'Date': ExcelExportType(
+                number_format='DD/MM/YYYY',
+                value=pd.to_datetime(self.offer.date, errors='ignore', dayfirst=True),
+            ),
+            'Sold': ExcelExportType(number_format=None, value='Sold' if self.offer.sold else ''),
+            'Link': ExcelExportType(number_format=None, value=self.offer.link),
+            'Images': ExcelExportType(number_format=None, value=os.path.abspath(OFFER_IMAGE_DIR + '/' + self.offer.id)),
+            'User name': ExcelExportType(number_format=None, value=self.offer.user.name),
+            'All other offers': ExcelExportType(number_format=None, value=self.offer.user.all_offers_link),
+            'Scraped on': ExcelExportType(number_format='DD/MM/YYYY HH:MM:SS', value=self.offer.scraped_on),
+            'Min Distance (km)': ExcelExportType(
+                number_format='#0', value=f'{min_distance:.2f} km to {closest_place_name}'
+            ),
+        }
+
+
+@dataclass
+class Entry:
+    metadata: Metadata
+
+    def to_excel(self) -> dict[str, ExcelExportType]:
+        data: dict[str, ExcelExportType] = {}
+        for f in fields(self):
+            if is_parameter(f):
+                data[to_readable_name(f.name)] = ExcelExportType(
+                    number_format=f.metadata['number_format'],
+                    value=f.metadata['value_transformer'](getattr(self, f.name)),
+                )
+        data.update(self.metadata.to_excel())
+        return data
+
+    @classmethod
+    def generate_json_description(cls) -> str:
+        # Automatically generate the description dictionary from the dataclass fields
+        description_dict = {'type': to_lower_snake_case(cls.__name__)}
+
+        for f in fields(cls):
+            if is_parameter(f):
+                description_dict[f.name] = f.metadata['description']
+
+        return json.dumps(description_dict, indent=2, ensure_ascii=False)
+
+    @classmethod
+    def from_json(cls, metadata: Metadata, json_data: dict) -> Entry:
+        parameters = {f.name: json_data[f.name] for f in fields(cls) if is_parameter(f)}
+
+        return cls(metadata=metadata, **parameters)
+
+
+@dataclass
+class Uninteresting(Entry):
+    @overrides(Entry)
+    def to_excel(self) -> dict[str, ExcelExportType]:
+        return {
+            'Title': ExcelExportType(number_format=None, value=self.metadata.offer.title),
+            **self.metadata.to_excel(),
+        }
+
+    @staticmethod
+    def from_offer(offer: Offer, lat_long: tuple[float, float]) -> Uninteresting:
+        return Uninteresting(metadata=Metadata(type='uninteresting', offer=offer, lat_long=lat_long))
+
+
+def parameter(
+    description: str,
+    number_format: str | None = None,
+    value_transformer: Callable[[str], str | float | pd.Timestamp] = lambda x: x,
+):
+    return field(
+        metadata={
+            'description': description,
+            'number_format': number_format,
+            'value_transformer': value_transformer,
+            'is_parameter': True,
+        },
+        init=True,
+        kw_only=True,
+    )
+
+
+def is_parameter(f: Field) -> bool:
+    return f.metadata.get('is_parameter', False)
