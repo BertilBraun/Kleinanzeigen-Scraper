@@ -10,7 +10,6 @@ from typing import Callable
 
 from src.config import INTEREST_LOCATIONS, OFFER_IMAGE_DIR
 from src.lat_long import distance, plz_to_lat_long
-from src.types_to_search import ALL_TYPES
 from src.util import log_all_exceptions, to_lower_snake_case, parse_numeric, to_readable_name, overrides
 
 
@@ -95,8 +94,10 @@ class DatabaseFactory:
 
     @staticmethod
     def _parse_entry(json_data: dict, metadata: Metadata) -> Entry:
+        from src.types_to_search import ALL_TYPES
+
         for type_ in ALL_TYPES + [Uninteresting]:
-            if to_lower_snake_case(type_.__name__) == metadata.type:
+            if do_types_match(metadata, type_):
                 return type_.from_json(metadata=metadata, json_data=json_data)
 
         raise ValueError(f'Unknown type: {metadata.type}')
@@ -155,7 +156,7 @@ class Metadata:
 class Entry:
     metadata: Metadata
 
-    def to_excel(self) -> dict[str, ExcelExportType]:
+    def to_excel(self, do_add_metadata: bool = True) -> dict[str, ExcelExportType]:
         data: dict[str, ExcelExportType] = {}
         for f in fields(self):
             if is_parameter(f):
@@ -163,7 +164,8 @@ class Entry:
                     number_format=f.metadata['number_format'],
                     value=f.metadata['value_transformer'](getattr(self, f.name)),
                 )
-        data.update(self.metadata.to_excel())
+        if do_add_metadata:
+            data.update(self.metadata.to_excel())
         return data
 
     @classmethod
@@ -217,3 +219,11 @@ def parameter(
 
 def is_parameter(f: Field) -> bool:
     return f.metadata.get('is_parameter', False)
+
+
+def list_entries_of_type(entries: list[Entry], type: type[Entry]) -> list[Entry]:
+    return [entry for entry in entries if do_types_match(entry.metadata, type)]
+
+
+def do_types_match(metadata: Metadata, type: type[Entry]) -> bool:
+    return metadata.type == to_lower_snake_case(type.__name__)

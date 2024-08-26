@@ -3,11 +3,8 @@ from openpyxl.worksheet.worksheet import Worksheet
 from openpyxl.styles import Font
 
 
-from src.types import Entry
-
-
-def list_entries_of_type(entries: list[Entry], type: str) -> list[Entry]:
-    return [entry for entry in entries if entry.metadata.type == type]
+from src.types import Entry, Uninteresting, list_entries_of_type
+from src.types_to_search import ALL_TYPES
 
 
 def to_excel(entries: list[Entry], path: str = 'export.xlsx') -> str:
@@ -16,12 +13,12 @@ def to_excel(entries: list[Entry], path: str = 'export.xlsx') -> str:
     if wb.active:
         wb.remove(wb.active)
 
-    for type in 'uninteresting', 'accessory', 'full_rig', 'full_set', 'boom', 'mast', 'board', 'sail':
-        entries_of_type = list_entries_of_type(entries, type)
+    for type_ in [Uninteresting] + ALL_TYPES:
+        entries_of_type = list_entries_of_type(entries, type_)
         scraped_on_dict = {entry.metadata.offer.link: entry.to_excel()['Scraped on'].value for entry in entries_of_type}
         entries_of_type.sort(key=lambda entry: scraped_on_dict[entry.metadata.offer.link], reverse=True)
         if entries_of_type:
-            ws: Worksheet = wb.create_sheet(type.capitalize(), 0)
+            ws: Worksheet = wb.create_sheet(type_.__name__, 0)
             add_entries_to_worksheet(ws, entries_of_type)
 
     # Save the workbook

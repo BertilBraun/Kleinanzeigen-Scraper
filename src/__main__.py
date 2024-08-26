@@ -1,15 +1,29 @@
 import json
 import asyncio
 
+from openai import OpenAI
+
 from src.display import to_excel
 from src.extract import extract_offer_details
 from src.scraper import BaseScraper
 from src.scraper_dailydose import ScraperDailyDose
 from src.scraper_kleinanzeigen import ScraperKleinanzeigen
-from src.config import CURRENT_OFFERS_FILE, DB_FILE, DO_REQUERY_OLD_OFFERS, INTEREST_LOCATIONS, WINDSURF_SEARCH_URLS
+from src.config import (
+    CURRENT_OFFERS_FILE,
+    DB_FILE,
+    DO_REQUERY_OLD_OFFERS,
+    EMAILS_TO_NOTIFY,
+    INTEREST_LOCATIONS,
+    INTERESTS,
+    LLM_MODEL_ID,
+    OPENAI_API_KEY,
+    WINDSURF_SEARCH_URLS,
+)
 from src.lat_long import distance, extract_lat_long, plz_to_lat_long
-from src.types import DatabaseFactory, Entry, Offer
-from src.util import dump_json, timeblock
+from src.types import DatabaseFactory, Entry, Offer, list_entries_of_type
+from src.types_to_search import ALL_TYPES
+from src.util import dump_json, timeblock, date_str
+from src.util.mail_util import send_mail
 
 
 def load_database(path: str) -> list[Entry]:
@@ -43,22 +57,9 @@ def partition_offers(
     return new_offers, old_offers, sold_offers
 
 
-async def main():
-    all_offers: list[Offer] = []
-    ALL_SCRAPERS: list[BaseScraper] = [
-        ScraperKleinanzeigen(max_pages_to_scrape=10),
-        ScraperDailyDose(max_pages_to_scrape=5),
-    ]
-    for scraper in ALL_SCRAPERS:
-        all_offers.extend(await scraper.scrape_all_offers(WINDSURF_SEARCH_URLS))
-
-    dump_json(all_offers, CURRENT_OFFERS_FILE)
-
-    database_entries = load_database(DB_FILE)
-
-    new_offers, old_offers, sold_offers = partition_offers(all_offers, database_entries)
-
+async def filter_based_on_location(new_offers: list[Offer]) -> list[tuple[Offer, tuple[float, float]]]:
     filtered_new_offers: list[tuple[Offer, tuple[float, float]]] = []
+
     for offer in new_offers:
         if not offer.location.strip():
             print(f'Offer: {offer.title} has no location - check manually: {offer.link}')
@@ -69,11 +70,14 @@ async def main():
         if any(distance(lat_long, plz_to_lat_long(location)) < radius for location, radius, _ in INTEREST_LOCATIONS):
             filtered_new_offers.append((offer, lat_long))
 
-    print(f'Total new offers: {len(new_offers)}')
-    print(f'Filtered new offers: {len(filtered_new_offers)}')
-    print(f'Old offers: {len(old_offers)}')
-    print(f'Sold offers: {len(sold_offers)}')
+    return filtered_new_offers
 
+
+def update_sold_status(
+    new_offers: list[Offer],
+    old_offers: list[tuple[Offer, Entry]],
+    sold_offers: list[Entry],
+) -> None:
     for entry in sold_offers:
         entry.metadata.offer.sold = True
 
@@ -83,6 +87,18 @@ async def main():
     for offer, entry in old_offers:
         entry.metadata.offer.sold = False
 
+
+async def extract_new_offer_details(filtered_new_offers: list[tuple[Offer, tuple[float, float]]]) -> list[Entry]:
+    with timeblock('extracting the details of the new offers'):
+        extracted_details = await asyncio.gather(
+            *[extract_offer_details(offer, lat_long) for offer, lat_long in filtered_new_offers]
+        )
+        await BaseScraper.scrape_offer_images([offer for offer, _ in filtered_new_offers], 5)
+
+    return extracted_details
+
+
+async def update_old_offers(old_offers: list[tuple[Offer, Entry]]) -> None:
     with timeblock('updating old offers'):
         for offer, entry in old_offers:
             title_is_longer = len(offer.title) > len(entry.metadata.offer.title)
@@ -105,12 +121,99 @@ async def main():
             offer.scraped_on = entry.metadata.offer.scraped_on
             entry.metadata.offer = offer
 
-    # extract the details of the new offers
-    with timeblock('extracting the details of the new offers'):
-        extracted_details = await asyncio.gather(
-            *[extract_offer_details(offer, lat_long) for offer, lat_long in filtered_new_offers]
+
+def is_entry_interesting(entry: Entry, type_name: str, interest: str) -> bool:
+    client = OpenAI(api_key=OPENAI_API_KEY)
+
+    try:
+        response = client.chat.completions.create(
+            model=LLM_MODEL_ID,
+            messages=[
+                {
+                    'role': 'system',
+                    'content': 'You are a helpful assistant who is going to help me filter new windsurfing offers. Please only respond with "yes" or "no". Your job is to tell me if the offer is interesting or not.',
+                },
+                {
+                    'role': 'user',
+                    'content': f"""The following offer is a new windsurfing offer:
+{get_entry_details_readable(entry)}
+I am currently interested in the following {type_name}s: {interest}
+Reply with "yes" if the offer is interesting, otherwise reply with "no".""",
+                },
+            ],
+            temperature=0.0,
         )
-        await BaseScraper.scrape_offer_images([offer for offer, _ in filtered_new_offers], 5)
+    except Exception:
+        return False
+    res = response.choices[0].message.content
+    return res is not None and res.lower() == 'yes'
+
+
+def filter_interesting_entries_using_gpt(entries: list[Entry]) -> tuple[str, int]:
+    # Liste an stuff nach denen man sucht, GPT die neuen offers und die gesuchen items geben und ihn filtern lassen, welche davon relevant sind - daraus dann eine Notification
+
+    interesting_entries = ''
+    number_of_interesting_entries = 0
+
+    for type_ in ALL_TYPES:
+        if not (interest := INTERESTS().get(type_, None)):
+            continue
+
+        interesting_entries_of_this_type = [
+            entry
+            for entry in list_entries_of_type(entries, type_)
+            if is_entry_interesting(entry, type_.__name__, interest)
+        ]
+
+        if interesting_entries_of_this_type:
+            interesting_entries += f'{type_.__name__}s:\n'
+            for entry in interesting_entries_of_this_type:
+                interesting_entries += get_entry_details_readable(entry)
+            interesting_entries += '=' * 80 + '\n\n\n'
+
+        number_of_interesting_entries += len(interesting_entries_of_this_type)
+
+    return interesting_entries, number_of_interesting_entries
+
+
+def get_entry_details_readable(entry: Entry) -> str:
+    text = '-' * 30 + f' New offer: {entry.metadata.offer.title} ' + '-' * 30 + '\n'
+    for name, value in entry.to_excel(do_add_metadata=False).items():
+        text += f'{name}: {value.value}\n'
+    text += f'Link: {entry.metadata.offer.link}\n'
+    text += f'Price: {entry.metadata.offer.price}\n'
+    text += '-' * 80 + '\n'
+    return text
+
+
+async def main():
+    all_offers: list[Offer] = []
+    ALL_SCRAPERS: list[BaseScraper] = [
+        ScraperKleinanzeigen(max_pages_to_scrape=10),
+        ScraperDailyDose(max_pages_to_scrape=5),
+    ]
+    for scraper in ALL_SCRAPERS:
+        all_offers.extend(await scraper.scrape_all_offers(WINDSURF_SEARCH_URLS))
+
+    dump_json(all_offers, CURRENT_OFFERS_FILE)
+
+    database_entries = load_database(DB_FILE)
+
+    new_offers, old_offers, sold_offers = partition_offers(all_offers, database_entries)
+
+    filtered_new_offers = await filter_based_on_location(new_offers)
+
+    print(f'Total new offers: {len(new_offers)}')
+    print(f'Filtered new offers: {len(filtered_new_offers)}')
+    print(f'Old offers: {len(old_offers)}')
+    print(f'Sold offers: {len(sold_offers)}')
+
+    update_sold_status(new_offers, old_offers, sold_offers)
+
+    await update_old_offers(old_offers)
+
+    # extract the details of the new offers
+    extracted_details = await extract_new_offer_details(filtered_new_offers)
 
     # store everything in the database
     new_database_entries = extracted_details + database_entries
@@ -119,17 +222,16 @@ async def main():
     path = to_excel(new_database_entries)
     print(f'Data saved to: {path}')
 
-    # TODO Liste an stuff nach denen man sucht, GPT die neuen offers und die gesuchen items geben und ihn filtern lassen, welche davon relevant sind - daraus dann eine Notification
+    interesting_entries, number_of_interesting_entries = filter_interesting_entries_using_gpt(extracted_details)
 
-    with open(R'C:\Users\berti\OneDrive\Desktop\kleinanzeigen_scraped.txt', 'w') as f:
-        f.write(f'New Offers have been scraped and {len(new_database_entries)} have been added\n\n')
-        f.write('New offers:\n')
-        for entry in extracted_details:
-            f.write('-' * 30 + f' New offer: {entry.metadata.type} ' + '-' * 30 + '\n')
-            for name, value in entry.to_excel().items():
-                if name not in ['All other offers', 'Date', 'Location', 'Sold', 'VB']:
-                    f.write(f'{name}: {value.value}\n')
-            f.write('-' * 80 + '\n')
+    if number_of_interesting_entries:
+        subject = f'New windsurfing offers ({number_of_interesting_entries}) on {date_str()}'
+        text = f'New offers:\n{interesting_entries}'
+
+        print(f'Sending mail with subject: {subject}\nText:\n{text}')
+        send_mail(subject, text, EMAILS_TO_NOTIFY)
+    else:
+        print('No interesting offers found')
 
 
 if __name__ == '__main__':

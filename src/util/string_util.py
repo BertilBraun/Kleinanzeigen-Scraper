@@ -1,3 +1,6 @@
+import time
+
+
 def to_lower_snake_case(s: str) -> str:
     # replace all uppercase letters with _ and lowercase
     return ''.join(['_' + c.lower() if c.isupper() else c for c in s]).lstrip('_')
@@ -18,3 +21,15 @@ def parse_numeric(value: str) -> float | str:
         return float(value)
     except ValueError:
         return value
+
+
+def datetime_str() -> str:
+    return date_str() + ' ' + time_str()
+
+
+def date_str() -> str:
+    return time.strftime('%Y-%m-%d')
+
+
+def time_str() -> str:
+    return time.strftime('%H.%M.%S')

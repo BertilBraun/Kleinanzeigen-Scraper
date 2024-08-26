@@ -55,11 +55,14 @@ class FullRig(Entry):
     boom: Boom = parameter('To be generated below')
 
     @overrides(Entry)
-    def to_excel(self) -> dict[str, ExcelExportType]:
+    def to_excel(self, do_add_metadata: bool = True) -> dict[str, ExcelExportType]:
         sail = {f'Sail {key}': value for key, value in self.sail.to_excel().items()}
         mast = {f'Mast {key}': value for key, value in self.mast.to_excel().items()}
         boom = {f'Boom {key}': value for key, value in self.boom.to_excel().items()}
-        return {**sail, **mast, **boom, **self.metadata.to_excel()}
+        data = {**sail, **mast, **boom}
+        if do_add_metadata:
+            data.update(self.metadata.to_excel())
+        return data
 
     @classmethod
     @overrides(Entry)

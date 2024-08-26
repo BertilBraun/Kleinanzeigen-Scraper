@@ -43,19 +43,14 @@ You should output the information in the following JSON format based on the type
 {all_type_descriptions}"""
 
 
-async def extract_offer_details(offer: Offer, lat_long: tuple[float, float]) -> Entry:
-    client = AsyncOpenAI(api_key=OPENAI_API_KEY)
-
+async def get_extraction_prompt(offer: Offer):
     base64_example_image = get_example_image()
     base64_images = await download_and_convert_images(offer.image_urls[:MAX_NUM_IMAGES])
 
-    try:
-        response = await client.chat.completions.create(
-            model=LLM_MODEL_ID,
-            messages=[
-                {
-                    'role': 'system',
-                    'content': f"""You are a helpful assistant that extracts information from offers related to Windsurf equipment and converts it into a specific JSON format. {get_type_descriptions()}
+    return [
+        {
+            'role': 'system',
+            'content': f"""You are a helpful assistant that extracts information from offers related to Windsurf equipment and converts it into a specific JSON format. {get_type_descriptions()}
 
 If the type of equipment cannot be determined or is not relevant to usable windsurf equipment, use:
 ```json
@@ -66,32 +61,32 @@ If the type of equipment cannot be determined or is not relevant to usable winds
 This will be for items like child equipment, courses, toys, display figures, etc. which are not relevant to windsurfing.
 
 """,
-                },
+        },
+        {
+            'role': 'user',
+            'content': [
                 {
-                    'role': 'user',
-                    'content': [
-                        {
-                            'type': 'text',
-                            'text': """As an example, let's extract the details of the following offer:
+                    'type': 'text',
+                    'text': """As an example, let's extract the details of the following offer:
 ---
 
 Convert the following offer into the appropriate JSON format:
 
 Title: North Spectro 6.5 Surfsegel Windsurfen
 Description: Segel mit wenigen Gebrauchsspuren. 2 Band-Camber als Profilgeber. Ein kleiner getapteter Cut im Unterliek. gerne auch mit Carbonmast + 20€""",
-                        },
-                        {
-                            'type': 'image_url',
-                            'image_url': {
-                                'url': f'data:image/png;base64,{base64_example_image}',
-                                'detail': 'low',  # The image is already downsampled to 512x512
-                            },
-                        },
-                    ],
                 },
                 {
-                    'role': 'assistant',
-                    'content': """{
+                    'type': 'image_url',
+                    'image_url': {
+                        'url': f'data:image/png;base64,{base64_example_image}',
+                        'detail': 'low',  # The image is already downsampled to 512x512
+                    },
+                },
+            ],
+        },
+        {
+            'role': 'assistant',
+            'content': """{
   "type": "sail",
   "size": "6.5",
   "brand": "North Spectro",
@@ -100,27 +95,36 @@ Description: Segel mit wenigen Gebrauchsspuren. 2 Band-Camber als Profilgeber. E
   "year": "N/A",
   "state": "repaired"
 }""",
-                },
+        },
+        {
+            'role': 'user',
+            'content': [
                 {
-                    'role': 'user',
-                    'content': [
-                        {
-                            'type': 'text',
-                            'text': f"""Convert the following offer into the appropriate JSON format:
+                    'type': 'text',
+                    'text': f"""Convert the following offer into the appropriate JSON format:
 
 Title: {offer.title}
 Description: {offer.description}""",
-                        },
-                        *[
-                            {
-                                'type': 'image_url',
-                                'image_url': {'url': f'data:image/png;base64,{image}', 'detail': 'low'},
-                            }
-                            for image in base64_images
-                        ],
-                    ],
                 },
+                *[
+                    {
+                        'type': 'image_url',
+                        'image_url': {'url': f'data:image/png;base64,{image}', 'detail': 'low'},
+                    }
+                    for image in base64_images
+                ],
             ],
+        },
+    ]
+
+
+async def extract_offer_details(offer: Offer, lat_long: tuple[float, float]) -> Entry:
+    client = AsyncOpenAI(api_key=OPENAI_API_KEY)
+
+    try:
+        response = await client.chat.completions.create(
+            model=LLM_MODEL_ID,
+            messages=await get_extraction_prompt(offer),
             temperature=0.0,
             response_format={'type': 'json_object'},
         )
@@ -137,7 +141,7 @@ Description: {offer.description}""",
             return Uninteresting.from_offer(offer, lat_long)
 
         json_data = json.loads(response_json)
-        if json_data['type'] and json_data['type'].lower() == 'n/a':
+        if json_data['type'].lower() == 'n/a':
             return Uninteresting.from_offer(offer, lat_long)
 
         return DatabaseFactory.parse_parial_entry(json_data, offer, lat_long)
