@@ -192,11 +192,12 @@ async def filter_interesting_entries_using_gpt(entries: list[Entry]) -> tuple[st
 
 def get_entry_details_readable(entry: Entry) -> str:
     text = '-' * 30 + f' New offer: {entry.metadata.offer.title} ' + '-' * 30 + '\n'
+    length_of_starting_text = len(text)
     for name, value in entry.to_excel(do_add_metadata=False).items():
         text += f'{name}: {value.value}\n'
     text += f'Link: {entry.metadata.offer.link}\n'
     text += f'Price: {entry.metadata.offer.price}\n'
-    text += '-' * 80 + '\n'
+    text += '-' * length_of_starting_text + '\n'
     return text
 
 
