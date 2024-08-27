@@ -77,3 +77,9 @@ class MyOwnScraper(BaseScraper):
 ```
 
 After you have implemented the scraper class, you need to add the scraper to the `ALL_SCRAPERS` list in the `src/__main__.py` file. That's it!
+
+## Future work
+
+- Add other websites to scrape
+  - [ ] Facebook Marketplace
+- [ ] More fine-grained search on Kleinanzeigen. Only search for sails, masts etc. instead of windsurfing sails, windsurfing masts - Let GPT filter out only windsurfing related stuff
