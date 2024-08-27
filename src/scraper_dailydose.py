@@ -2,7 +2,7 @@ from bs4 import BeautifulSoup
 import pandas as pd
 
 from src.config import BASE_URL_DAILYDOSE
-from src.util import get
+from src.util import get, overrides
 from src.scraper import BaseScraper
 from src.types import Offer, User
 
@@ -11,9 +11,11 @@ class ScraperDailyDose(BaseScraper):
     def __init__(self, max_pages_to_scrape: int = 1000):
         super().__init__(offer_page_batch_size=10, max_offers_per_page=30, max_pages_to_scrape=max_pages_to_scrape)
 
+    @overrides(BaseScraper)
     def filter_relevant_urls(self, urls: list[str]) -> list[str]:
         return [url for url in urls if url.startswith(BASE_URL_DAILYDOSE)]
 
+    @overrides(BaseScraper)
     async def scrape_offer_url(self, url: str) -> Offer:
         html_content = await get(url)
         soup = BeautifulSoup(html_content, 'html.parser')
@@ -68,6 +70,7 @@ class ScraperDailyDose(BaseScraper):
 
         return offer
 
+    @overrides(BaseScraper)
     async def scrape_offer_links_from_search_url(self, base_url: str) -> list[str]:
         # Send a GET request to the specified URL
         html_content = await get(base_url)

@@ -16,6 +16,7 @@ class BaseScraper:
 
     @abstractmethod
     def filter_relevant_urls(self, urls: list[str]) -> list[str]:
+        # Return only the relevant search URLs for the current scraper
         ...
 
     async def scrape_all_offers(self, search_urls: list[str]) -> list[Offer]:
@@ -33,10 +34,12 @@ class BaseScraper:
 
     @abstractmethod
     async def scrape_offer_url(self, url: str) -> Offer:
+        # Scrape the offer details from the provided offer URL
         ...
 
     @abstractmethod
     async def scrape_offer_links_from_search_url(self, base_url: str) -> list[str]:
+        # Scrape the links to all offers from the provided search URL
         ...
 
     @staticmethod
