@@ -1,7 +1,7 @@
 import json
 
 
-from src.excel_export import save_to_excel
+from src.excel_export import export_to_excel
 from src.extract_using_gpt import extract_offer_details
 from src.scraper import BaseScraper
 from src.scraper_dailydose import ScraperDailyDose
@@ -243,7 +243,7 @@ async def main():
 
     extracted_details = await update_entries_and_fetch_new_offers(all_offers)
 
-    save_to_excel(load_database(DB_FILE), EXCEL_EXPORT_FILE)
+    export_to_excel(load_database(DB_FILE), EXCEL_EXPORT_FILE)
     print(f'Data saved to: {EXCEL_EXPORT_FILE}')
 
     interesting_entries, number_of_interesting_entries = await filter_interesting_entries_using_gpt(extracted_details)
@@ -260,6 +260,7 @@ async def main():
 
 if __name__ == '__main__':
     import asyncio
+
     # export_to_excel(load_database(DB_FILE), EXCEL_EXPORT_FILE)
 
     asyncio.run(main())

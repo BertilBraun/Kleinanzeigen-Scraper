@@ -7,13 +7,13 @@ from src.types import Entry, Uninteresting, list_entries_of_type
 from src.types_to_search import ALL_TYPES
 
 
-def save_to_excel(entries: list[Entry], path: str) -> None:
+def export_to_excel(entries: list[Entry], path: str) -> None:
     wb = Workbook()
     # Remove the default sheet
     if wb.active:
         wb.remove(wb.active)
 
-    for type_ in [Uninteresting] + ALL_TYPES:
+    for type_ in [Uninteresting] + list(reversed(ALL_TYPES)):
         entries_of_type = list_entries_of_type(entries, type_)
         scraped_on_dict = {entry.metadata.offer.link: entry.to_excel()['Scraped on'].value for entry in entries_of_type}
         entries_of_type.sort(key=lambda entry: scraped_on_dict[entry.metadata.offer.link], reverse=True)
