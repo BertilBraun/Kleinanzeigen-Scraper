@@ -1,13 +1,11 @@
-import asyncio
 import json
 import base64
 
 
-from src.requests import get_bytes
 from src.config import MAX_NUM_IMAGES
 from src.types_to_search import ALL_TYPES
 from src.types import DatabaseFactory, Entry, Offer, Uninteresting, to_readable_name
-from src.util import async_gpt_request
+from src.util import async_gpt_request, get_bytes, run_in_batches
 
 
 def base64_encode_image(image: bytes) -> str:
@@ -21,7 +19,7 @@ def get_example_image() -> str:
 
 
 async def download_and_convert_images(image_urls: list[str]) -> list[str]:
-    image_bytes = await asyncio.gather(*[get_bytes(url) for url in image_urls])
+    image_bytes = await run_in_batches(image_urls, 5, get_bytes, desc=None)
     return [base64_encode_image(image) for image in image_bytes]
 
 

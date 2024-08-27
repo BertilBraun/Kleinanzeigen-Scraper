@@ -7,8 +7,17 @@ from src.util import parse_numeric, indent, overrides
 class Sail(Entry):
     size: str = parameter('Size of the Sail in m²', '#,#0.0', parse_numeric)
     brand: str = parameter('Name of the Brand and Model')
-    mast_length: str = parameter('Length of the required Mast in cm', '#0', parse_numeric)
-    boom_size: str = parameter('Size of the required Boom in cm', '#0', parse_numeric)
+    mast_length: str = parameter(
+        'Length of the required Mast in cm. Most of the time visible on a picture underneath "Luff" on the Sail.',
+        '#0',
+        parse_numeric,
+    )
+    boom_size: str = parameter(
+        'Size of the required Boom in cm. Most of the time visible on a picture underneath "Boom" on the Sail.',
+        '#0',
+        parse_numeric,
+    )
+    sail_type: str = parameter('Wave, Freestyle, Freeride, Freemove, Slalom, Racing, etc.')
     year: str = parameter('Release Year')
     state: str = parameter('new, used, repaired, demaged, defective')
 
@@ -88,8 +97,10 @@ class FullRig(Entry):
 
 @dataclass
 class Accessory(Entry):
-    accessory_type: str = parameter('Mastfoot, Mast extension, Harness Lines, Fins, etc.')
+    accessory_type: str = parameter(
+        'Mastfoot, Mast extension, Harness Lines, Fins, Harness, Impact Vest, etc. Should be the Type of the Accessory, followed by a short description. E.g., "Harness Lines: 24-30 inch adjustable"'
+    )
 
 
 ENTRY_TYPES = Sail | Board | Mast | Boom | FullSet | FullRig | Accessory
-ALL_TYPES: list[type[Entry]] = [Sail, Board, Mast, Boom, FullSet, FullRig, Accessory]
+ALL_TYPES: list[type[ENTRY_TYPES]] = [Sail, Board, Mast, Boom, FullSet, FullRig, Accessory]

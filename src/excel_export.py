@@ -7,7 +7,7 @@ from src.types import Entry, Uninteresting, list_entries_of_type
 from src.types_to_search import ALL_TYPES
 
 
-def to_excel(entries: list[Entry], path: str = 'export.xlsx') -> str:
+def save_to_excel(entries: list[Entry], path: str) -> None:
     wb = Workbook()
     # Remove the default sheet
     if wb.active:
@@ -23,8 +23,6 @@ def to_excel(entries: list[Entry], path: str = 'export.xlsx') -> str:
 
     # Save the workbook
     wb.save(path)
-
-    return path
 
 
 def add_entries_to_worksheet(ws: Worksheet, entries: list[Entry]) -> None:

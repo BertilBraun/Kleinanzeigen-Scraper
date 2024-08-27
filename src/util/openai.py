@@ -2,8 +2,10 @@ from openai import AsyncOpenAI, OpenAI
 from openai.types.chat.completion_create_params import ResponseFormat
 
 from src.config import LLM_MODEL_ID, OPENAI_API_KEY
+from src.util.contextmanager import cache_to_file
 
 
+@cache_to_file('gpt_request_cache.json')
 def sync_gpt_request(
     prompt: list,
     temperature: float = 0.0,
@@ -26,6 +28,7 @@ def sync_gpt_request(
     return response.choices[0].message.content is not None, response.choices[0].message.content or ''
 
 
+@cache_to_file('gpt_request_cache.json')
 async def async_gpt_request(
     prompt: list,
     temperature: float = 0.0,

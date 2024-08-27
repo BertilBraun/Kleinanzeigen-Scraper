@@ -2,7 +2,7 @@ from bs4 import BeautifulSoup
 import pandas as pd
 
 from src.config import BASE_URL_KLEINANZEIGEN
-from src.requests import get
+from src.util import get
 from src.scraper import BaseScraper
 from src.types import Offer, User
 

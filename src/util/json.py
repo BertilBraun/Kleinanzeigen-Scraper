@@ -6,7 +6,7 @@ from dataclasses import is_dataclass
 
 import pandas as pd
 
-from src.util import write_to_file
+from src.util.file import write_to_file
 
 
 def custom_asdict(obj):
@@ -57,10 +57,11 @@ def load_json(file_name: str, obj_type: Type[FromJsonProtocol[T]] | None = None)
     # Datei lesen und JSON laden
     with open(file_name, 'r') as f:
         file_content = f.read()
-        try:
-            json_data = json.loads(file_content)
-        except json.JSONDecodeError:
-            json_data = json.loads(file_content + ']')
+
+    try:
+        json_data = json.loads(file_content)
+    except json.JSONDecodeError:
+        json_data = json.loads(file_content + ']')
 
     if obj_type is None:
         return json_data
@@ -69,14 +70,7 @@ def load_json(file_name: str, obj_type: Type[FromJsonProtocol[T]] | None = None)
     if not isinstance(json_data, list):
         raise ValueError('Das JSON-Objekt muss ein Array sein.')
 
-    # Liste der Objekte erstellen
-    obj_list: list[T] = []
-    for entry in json_data:
-        # Erstellen einer Instanz des obj_type und Initialisieren mit den JSON-Daten
-        obj = obj_type.from_json(entry)
-        obj_list.append(obj)
-
-    return obj_list
+    return [obj_type.from_json(entry) for entry in json_data]
 
 
 def dump_json(obj: Any, file_name: str) -> None:

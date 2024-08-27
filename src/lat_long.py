@@ -1,14 +1,13 @@
-from functools import cache
+import re
 import json
 import math
-import re
+from functools import cache
 
 import urllib
 import urllib.parse
 
-from src.requests import get
 from src.config import GEOAPIFY_API_KEY
-from src.util import cache_to_file
+from src.util import cache_to_file, get
 
 
 async def extract_lat_long(location: str) -> tuple[float, float]:

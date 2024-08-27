@@ -1,9 +1,8 @@
 import json
-import asyncio
 
 
-from src.display import to_excel
-from src.extract import extract_offer_details
+from src.excel_export import save_to_excel
+from src.extract_using_gpt import extract_offer_details
 from src.scraper import BaseScraper
 from src.scraper_dailydose import ScraperDailyDose
 from src.scraper_kleinanzeigen import ScraperKleinanzeigen
@@ -12,6 +11,7 @@ from src.config import (
     DB_FILE,
     DO_REQUERY_OLD_OFFERS,
     EMAILS_TO_NOTIFY,
+    EXCEL_EXPORT_FILE,
     INTEREST_LOCATIONS,
     INTERESTS,
     WINDSURF_SEARCH_URLS,
@@ -19,7 +19,7 @@ from src.config import (
 from src.lat_long import distance, extract_lat_long, plz_to_lat_long
 from src.types import DatabaseFactory, Entry, Offer, list_entries_of_type
 from src.types_to_search import ALL_TYPES
-from src.util import timeblock, dump_json, send_mail, sync_gpt_request, date_str
+from src.util import timeblock, dump_json, send_mail, date_str, async_gpt_request, run_in_batches
 
 
 def load_database(path: str) -> list[Entry]:
@@ -53,6 +53,14 @@ def partition_offers(
     return new_offers, old_offers, sold_offers
 
 
+def filter_based_on_keywords(new_offers: list[Offer]) -> list[Offer]:
+    return [
+        offer
+        for offer in new_offers
+        if not any(keyword.lower() in offer.title.lower() for keyword in ('gesucht', 'suche'))
+    ]
+
+
 async def filter_based_on_location(new_offers: list[Offer]) -> list[tuple[Offer, tuple[float, float]]]:
     filtered_new_offers: list[tuple[Offer, tuple[float, float]]] = []
 
@@ -67,6 +75,12 @@ async def filter_based_on_location(new_offers: list[Offer]) -> list[tuple[Offer,
             filtered_new_offers.append((offer, lat_long))
 
     return filtered_new_offers
+
+
+async def filter_offers(new_offers: list[Offer]) -> list[tuple[Offer, tuple[float, float]]]:
+    filtered_based_on_keywords = filter_based_on_keywords(new_offers)
+    filtered_based_on_location = await filter_based_on_location(filtered_based_on_keywords)
+    return filtered_based_on_location
 
 
 def update_sold_status(
@@ -86,10 +100,21 @@ def update_sold_status(
 
 async def extract_new_offer_details(filtered_new_offers: list[tuple[Offer, tuple[float, float]]]) -> list[Entry]:
     with timeblock('extracting the details of the new offers'):
-        extracted_details = await asyncio.gather(
-            *[extract_offer_details(offer, lat_long) for offer, lat_long in filtered_new_offers]
+
+        async def _extract(offer_lat_long: tuple[Offer, tuple[float, float]]) -> Entry:
+            offer, lat_long = offer_lat_long
+            return await extract_offer_details(offer, lat_long)
+
+        extracted_details = await run_in_batches(
+            filtered_new_offers,
+            5,
+            _extract,
+            desc='Extracting offer details',
         )
-        await BaseScraper.scrape_offer_images([offer for offer, _ in filtered_new_offers], 5)
+        await BaseScraper.scrape_offer_images(
+            [offer for offer, _ in filtered_new_offers],
+            5,
+        )
 
     return extracted_details
 
@@ -118,8 +143,8 @@ async def update_old_offers(old_offers: list[tuple[Offer, Entry]]) -> None:
             entry.metadata.offer = offer
 
 
-def is_entry_interesting(entry: Entry, type_name: str, interest: str) -> bool:
-    success, res = sync_gpt_request(
+async def is_entry_interesting(entry: Entry, type_name: str, interest: str) -> bool:
+    success, res = await async_gpt_request(
         [
             {
                 'role': 'system',
@@ -138,7 +163,7 @@ Reply with "yes" if the offer is interesting, otherwise reply with "no".""",
     return success and res.lower() == 'yes'
 
 
-def filter_interesting_entries_using_gpt(entries: list[Entry]) -> tuple[str, int]:
+async def filter_interesting_entries_using_gpt(entries: list[Entry]) -> tuple[str, int]:
     # Liste an stuff nach denen man sucht, GPT die neuen offers und die gesuchen items geben und ihn filtern lassen, welche davon relevant sind - daraus dann eine Notification
 
     interesting_entries = ''
@@ -151,7 +176,7 @@ def filter_interesting_entries_using_gpt(entries: list[Entry]) -> tuple[str, int
         interesting_entries_of_this_type = [
             entry
             for entry in list_entries_of_type(entries, type_)
-            if is_entry_interesting(entry, type_.__name__, interest)
+            if await is_entry_interesting(entry, type_.__name__, interest)
         ]
 
         if interesting_entries_of_this_type:
@@ -175,22 +200,15 @@ def get_entry_details_readable(entry: Entry) -> str:
     return text
 
 
-async def main():
-    all_offers: list[Offer] = []
-    ALL_SCRAPERS: list[BaseScraper] = [
-        ScraperKleinanzeigen(max_pages_to_scrape=10),
-        ScraperDailyDose(max_pages_to_scrape=5),
-    ]
-    for scraper in ALL_SCRAPERS:
-        all_offers.extend(await scraper.scrape_all_offers(WINDSURF_SEARCH_URLS))
-
-    dump_json(all_offers, CURRENT_OFFERS_FILE)
+async def update_entries_and_fetch_new_offers(all_offers: list[Offer]) -> list[Entry]:
+    # Updates the database with the new offers and fetches the details of the new offers
+    # Returns the details of the new offers and updates the database with the updates to the old offers and the newly fetched details
 
     database_entries = load_database(DB_FILE)
 
     new_offers, old_offers, sold_offers = partition_offers(all_offers, database_entries)
 
-    filtered_new_offers = await filter_based_on_location(new_offers)
+    filtered_new_offers = await filter_offers(new_offers)
 
     print(f'Total new offers: {len(new_offers)}')
     print(f'Filtered new offers: {len(filtered_new_offers)}')
@@ -208,10 +226,26 @@ async def main():
     new_database_entries = extracted_details + database_entries
     dump_json(new_database_entries, DB_FILE)
 
-    path = to_excel(new_database_entries)
-    print(f'Data saved to: {path}')
+    return extracted_details
 
-    interesting_entries, number_of_interesting_entries = filter_interesting_entries_using_gpt(extracted_details)
+
+async def main():
+    all_offers: list[Offer] = []
+    ALL_SCRAPERS: list[BaseScraper] = [
+        ScraperKleinanzeigen(max_pages_to_scrape=10),
+        ScraperDailyDose(max_pages_to_scrape=5),
+    ]
+    for scraper in ALL_SCRAPERS:
+        all_offers.extend(await scraper.scrape_all_offers(WINDSURF_SEARCH_URLS))
+
+    dump_json(all_offers, CURRENT_OFFERS_FILE)
+
+    extracted_details = await update_entries_and_fetch_new_offers(all_offers)
+
+    save_to_excel(load_database(DB_FILE), EXCEL_EXPORT_FILE)
+    print(f'Data saved to: {EXCEL_EXPORT_FILE}')
+
+    interesting_entries, number_of_interesting_entries = await filter_interesting_entries_using_gpt(extracted_details)
 
     if number_of_interesting_entries:
         subject = f'New windsurfing offers ({number_of_interesting_entries}) on {date_str()}'
@@ -224,6 +258,7 @@ async def main():
 
 
 if __name__ == '__main__':
-    # to_excel(load_database(DB_FILE))
+    import asyncio
+    # export_to_excel(load_database(DB_FILE), EXCEL_EXPORT_FILE)
 
     asyncio.run(main())

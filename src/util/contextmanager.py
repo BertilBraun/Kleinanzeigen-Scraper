@@ -3,9 +3,9 @@ import json
 import time
 from contextlib import contextmanager
 
-from typing import Any, Callable, Generator
+from typing import Any, Callable, Coroutine, Generator
 
-from src.util import custom_asdict
+from src.util.json import custom_asdict, dump_json, load_json
 
 
 @contextmanager
@@ -83,23 +83,23 @@ def timeblock(message: str):
         print(f'Timing {message} took: {timer.elapsed_time:.3f} seconds')
 
 
-def cache_to_file(file_name: str):
+def cache_to_file(file_name: str) -> Callable[..., Callable[..., Coroutine[Any, Any, Any]]]:
     # Wrapps a function that (optionally) returns a coroutine and caches the result to a file
     # The parameters are thereby used as the cache key, so the function should be deterministic
 
-    def decorator(func):
+    def decorator(func) -> Callable[..., Coroutine[Any, Any, Any]]:
         async def wrapper(*args, **kwargs):
-            cache = {}
-            if os.path.exists(file_name):
-                with open(file_name, 'r') as f:
-                    cache = json.load(f)
+            cache = load_json(file_name) if os.path.exists(file_name) else {}
             key = json.dumps(custom_asdict((args, kwargs)))
             if key in cache:
                 return cache[key]
+
             result = await func(*args, **kwargs)
+
+            # Reload the cache in case it was changed (e.g., by concurrent requests)
+            cache = load_json(file_name) if os.path.exists(file_name) else {}
             cache[key] = custom_asdict(result)
-            with open(file_name, 'w') as f:
-                json.dump(cache, f, indent=4)
+            dump_json(cache, file_name)
             return result
 
         return wrapper

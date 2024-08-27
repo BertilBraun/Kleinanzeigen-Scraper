@@ -181,7 +181,7 @@ class Entry:
 
     @classmethod
     def from_json(cls, metadata: Metadata, json_data: dict) -> Entry:
-        parameters = {f.name: json_data[f.name] for f in fields(cls) if is_parameter(f)}
+        parameters = {f.name: json_data.get(f.name, '') for f in fields(cls) if is_parameter(f)}
 
         return cls(metadata=metadata, **parameters)
 
