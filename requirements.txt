@@ -4,3 +4,5 @@ openpyxl
 tqdm
 pandas
 mailjet_rest
+selenium
+webdriver_manager
