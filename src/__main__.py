@@ -197,6 +197,7 @@ def get_entry_details_readable(entry: Entry) -> str:
         text += f'{name}: {value.value}\n'
     text += f'Link: {entry.metadata.offer.link}\n'
     text += f'Price: {entry.metadata.offer.price}\n'
+    text += f'Distance: {entry.metadata.closest_interest_location} km\n'
     text += '-' * length_of_starting_text + '\n'
     return text
 
@@ -233,8 +234,8 @@ async def update_entries_and_fetch_new_offers(all_offers: list[Offer]) -> list[E
 async def main():
     all_offers: list[Offer] = []
     ALL_SCRAPERS: list[BaseScraper] = [
-        ScraperKleinanzeigen(max_pages_to_scrape=10),
-        ScraperDailyDose(max_pages_to_scrape=5),
+        ScraperKleinanzeigen(max_pages_to_scrape=25),
+        ScraperDailyDose(max_pages_to_scrape=10),
     ]
     for scraper in ALL_SCRAPERS:
         all_offers.extend(await scraper.scrape_all_offers(WINDSURF_SEARCH_URLS))

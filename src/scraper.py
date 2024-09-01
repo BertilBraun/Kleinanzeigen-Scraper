@@ -19,6 +19,16 @@ class BaseScraper:
         # Return only the relevant search URLs for the current scraper
         ...
 
+    @abstractmethod
+    async def scrape_offer_url(self, url: str) -> Offer:
+        # Scrape the offer details from the provided offer URL
+        ...
+
+    @abstractmethod
+    async def scrape_offer_links_from_search_url(self, base_url: str) -> list[str]:
+        # Scrape the links to all offers from the provided search URL
+        ...
+
     async def scrape_all_offers(self, search_urls: list[str]) -> list[Offer]:
         with timeblock('scraping all offer links'):
             all_offer_links_list = await asyncio.gather(
@@ -31,16 +41,6 @@ class BaseScraper:
 
         with timeblock(f'scraping all {len(all_offer_links)} offers'):
             return await self._scrape_all_offers_from_offer_links(list(all_offer_links))
-
-    @abstractmethod
-    async def scrape_offer_url(self, url: str) -> Offer:
-        # Scrape the offer details from the provided offer URL
-        ...
-
-    @abstractmethod
-    async def scrape_offer_links_from_search_url(self, base_url: str) -> list[str]:
-        # Scrape the links to all offers from the provided search URL
-        ...
 
     @staticmethod
     async def scrape_offer_images(offers: list[Offer], offer_page_batch_size: int) -> None:
