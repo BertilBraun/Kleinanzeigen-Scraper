@@ -1,3 +1,5 @@
+from datetime import datetime
+import hashlib
 import os
 import json
 import random
@@ -84,6 +86,19 @@ def timeblock(message: str):
         print(f'Timing {message} took: {timer.elapsed_time:.3f} seconds')
 
 
+def generate_hashcode(data: Any) -> str:
+    # Serialisieren der Liste von Dictionaries in einen JSON-String
+    # sort_keys sorgt für konsistente Reihenfolge der Schlüssel
+    serialized_data = json.dumps(custom_asdict(data), sort_keys=True, separators=(',', ':'))
+
+    # Erstellen eines Hash-Objekts mit MD5
+    hash_object = hashlib.md5()
+    hash_object.update(serialized_data.encode('utf-8'))  # Daten müssen als Bytes übergeben werden
+
+    # Rückgabe des Hashcodes als Hexadezimal-String
+    return hash_object.hexdigest()
+
+
 def cache_to_folder(folder_name: str) -> Callable[..., Callable[..., Coroutine[Any, Any, Any]]]:
     # Wrapps a function that (optionally) returns a coroutine and caches the result to a file
     # The parameters are thereby used as the cache key, so the function should be deterministic
@@ -101,9 +116,10 @@ def cache_to_folder(folder_name: str) -> Callable[..., Callable[..., Coroutine[A
         if random.random() < 0.01:  # 1% chance to clean up the cache
             dump_json(cache, f'{folder_name}/cache.json')
             for file_name in os.listdir(folder_name):
-                if file_name.endswith('.json') and file_name != 'cache.json':
+                if file_name.endswith('.json') and 'cache' not in file_name:
                     with log_all_exceptions(f'Failed to remove file: {file_name}'):
                         os.remove(f'{folder_name}/{file_name}')
+            dump_json(cache, f'{folder_name}/cache.json')
 
         return cache
 
@@ -111,14 +127,15 @@ def cache_to_folder(folder_name: str) -> Callable[..., Callable[..., Coroutine[A
         async def wrapper(*args, **kwargs):
             os.makedirs(folder_name, exist_ok=True)
             cache = load_cache(folder_name)
-            key = json.dumps(custom_asdict((args, kwargs)))
+            key = generate_hashcode((args, kwargs))
             if key in cache:
                 return cache[key]
             del cache
 
             result = await func(*args, **kwargs)
 
-            new_file_name = f'{folder_name}/{time.time()}.json'
+            time_str_include_milliseconds = datetime.now().strftime('%Y-%m-%d_%H-%M-%S-%f')
+            new_file_name = f'{folder_name}/{time_str_include_milliseconds}.json'
             dump_json({key: custom_asdict(result)}, new_file_name)
             return result
 

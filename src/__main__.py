@@ -201,9 +201,11 @@ def get_entry_details_readable(entry: Entry) -> str:
     length_of_starting_text = len(text)
     for name, value in entry.to_excel(do_add_metadata=False).items():
         text += f'{name}: {value.value}\n'
-    text += f'Link: {entry.metadata.offer.link}\n'
     text += f'Price: {entry.metadata.offer.price}\n'
-    text += f'Distance: {entry.metadata.closest_interest_location} km\n'
+    text += f'Location: {entry.metadata.offer.location}\n'
+    closest_location, distance_to_closest_location = entry.metadata.closest_interest_location
+    text += f'Closest interest location: {closest_location} ({distance_to_closest_location} km)\n'
+    text += f'Link: {entry.metadata.offer.link}\n'
     text += '-' * length_of_starting_text + '\n'
     return text
 
