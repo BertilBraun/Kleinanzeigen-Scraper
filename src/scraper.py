@@ -48,7 +48,6 @@ class BaseScraper:
             offer_folder = f'{OFFER_IMAGE_DIR}/{offer.id}/'
 
             if os.path.exists(offer_folder):
-                print(f'Offer images for {offer.id} already exist, skipping...')
                 return
 
             os.makedirs(offer_folder, exist_ok=True)

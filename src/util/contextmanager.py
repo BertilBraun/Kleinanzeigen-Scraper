@@ -1,5 +1,6 @@
 import os
 import json
+import random
 import time
 from contextlib import contextmanager
 
@@ -83,7 +84,7 @@ def timeblock(message: str):
         print(f'Timing {message} took: {timer.elapsed_time:.3f} seconds')
 
 
-def cache_to_file(folder_name: str) -> Callable[..., Callable[..., Coroutine[Any, Any, Any]]]:
+def cache_to_folder(folder_name: str) -> Callable[..., Callable[..., Coroutine[Any, Any, Any]]]:
     # Wrapps a function that (optionally) returns a coroutine and caches the result to a file
     # The parameters are thereby used as the cache key, so the function should be deterministic
     def load_cache(folder_name: str) -> dict[str, Any]:
@@ -97,6 +98,13 @@ def cache_to_file(folder_name: str) -> Callable[..., Callable[..., Coroutine[Any
                 except Exception:
                     pass
 
+        if random.random() < 0.01:  # 1% chance to clean up the cache
+            dump_json(cache, f'{folder_name}/cache.json')
+            for file_name in os.listdir(folder_name):
+                if file_name.endswith('.json') and file_name != 'cache.json':
+                    with log_all_exceptions(f'Failed to remove file: {file_name}'):
+                        os.remove(f'{folder_name}/{file_name}')
+
         return cache
 
     def decorator(func) -> Callable[..., Coroutine[Any, Any, Any]]:
@@ -106,6 +114,7 @@ def cache_to_file(folder_name: str) -> Callable[..., Callable[..., Coroutine[Any
             key = json.dumps(custom_asdict((args, kwargs)))
             if key in cache:
                 return cache[key]
+            del cache
 
             result = await func(*args, **kwargs)
 

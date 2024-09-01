@@ -133,11 +133,14 @@ class Metadata:
                 value=parse_numeric(
                     self.offer.price.replace(',-', '')
                     .replace('.-', '')
+                    .replace('-', '')
                     .replace(',', '.')
                     .replace('€', '')
                     .replace('Euro', '')
                     .replace('VB', '')
                     .replace('VHB', '')
+                    .replace('vb', '')
+                    .replace('vhb', '')
                     .strip()
                 ),
             ),
@@ -190,7 +193,7 @@ class Entry:
 
     @classmethod
     def from_json(cls, metadata: Metadata, json_data: dict) -> Entry:
-        parameters = {f.name: json_data.get(f.name, '') for f in fields(cls) if is_parameter(f)}
+        parameters = {f.name: json_data.get(f.name, '').replace('N/A', '') for f in fields(cls) if is_parameter(f)}
 
         return cls(metadata=metadata, **parameters)
 

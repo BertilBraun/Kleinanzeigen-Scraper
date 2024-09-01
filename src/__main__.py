@@ -1,6 +1,5 @@
 import json
 
-
 from src.excel_export import export_to_excel
 from src.extract_using_gpt import extract_offer_details
 from src.scraper import BaseScraper
@@ -173,11 +172,18 @@ async def filter_interesting_entries_using_gpt(entries: list[Entry]) -> tuple[st
         if not (interest := INTERESTS().get(type_, None)):
             continue
 
-        interesting_entries_of_this_type = [
-            entry
-            for entry in list_entries_of_type(entries, type_)
-            if await is_entry_interesting(entry, type_.__name__, interest)
-        ]
+        async def _is_entry_interesting(entry: Entry) -> Entry | None:
+            if await is_entry_interesting(entry, type_.__name__, interest or ''):
+                return entry
+
+        interesting_entries_of_this_type = await run_in_batches(
+            list_entries_of_type(entries, type_),
+            20,
+            _is_entry_interesting,
+            desc=f'Filtering {type_.__name__}s',
+        )
+
+        interesting_entries_of_this_type = [entry for entry in interesting_entries_of_this_type if entry]
 
         if interesting_entries_of_this_type:
             interesting_entries += f'{type_.__name__}s:\n'
