@@ -11,6 +11,8 @@ function Get-YesterdayDate {
 function Run-Script {
     Write-Output "Running python -m src"
     python -m src
+    # copy export.xlsx to C:\Users\berti\OneDrive\Docs\export.xlsx
+    Copy-Item -Path "export.xlsx" -Destination "C:\Users\berti\OneDrive\Docs\export.xlsx"
 }
 
 function Update-LastRunDate {

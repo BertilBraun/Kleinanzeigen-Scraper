@@ -31,11 +31,11 @@ class BaseScraper:
 
     async def scrape_all_offers(self, search_urls: list[str]) -> list[Offer]:
         with timeblock('scraping all offer links'):
-            all_offer_links_list = await asyncio.gather(
-                *[
-                    self._scrape_all_offer_links_from_search_url(search_url)
-                    for search_url in self.filter_relevant_urls(search_urls)
-                ]
+            all_offer_links_list = await run_in_batches(
+                self.filter_relevant_urls(search_urls),
+                self.offer_page_batch_size,
+                self._scrape_all_offer_links_from_search_url,
+                desc='Scraping offer links',
             )
         all_offer_links = set().union(*all_offer_links_list)
 
@@ -46,6 +46,10 @@ class BaseScraper:
     async def scrape_offer_images(offers: list[Offer], offer_page_batch_size: int) -> None:
         async def _scrape_offer_images(offer: Offer) -> None:
             offer_folder = f'{OFFER_IMAGE_DIR}/{offer.id}/'
+
+            if os.path.exists(offer_folder):
+                print(f'Offer images for {offer.id} already exist, skipping...')
+                return
 
             os.makedirs(offer_folder, exist_ok=True)
 

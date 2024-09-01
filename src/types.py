@@ -126,7 +126,7 @@ class Metadata:
         )
 
     def to_excel(self) -> dict[str, ExcelExportType]:
-        min_distance, closest_place_name = self.closest_interest_location
+        closest_place_name, min_distance = self.closest_interest_location
         return {
             'Price': ExcelExportType(
                 number_format='#0 €',

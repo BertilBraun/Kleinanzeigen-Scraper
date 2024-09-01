@@ -105,15 +105,15 @@ async def extract_new_offer_details(filtered_new_offers: list[tuple[Offer, tuple
             offer, lat_long = offer_lat_long
             return await extract_offer_details(offer, lat_long)
 
-        extracted_details = await run_in_batches(
-            filtered_new_offers,
-            5,
-            _extract,
-            desc='Extracting offer details',
-        )
         await BaseScraper.scrape_offer_images(
             [offer for offer, _ in filtered_new_offers],
-            5,
+            5,  # Min of all scrapers batch sizes
+        )
+        extracted_details = await run_in_batches(
+            filtered_new_offers,
+            20,
+            _extract,
+            desc='Extracting offer details',
         )
 
     return extracted_details

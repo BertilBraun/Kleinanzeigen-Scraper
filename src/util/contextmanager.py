@@ -83,23 +83,34 @@ def timeblock(message: str):
         print(f'Timing {message} took: {timer.elapsed_time:.3f} seconds')
 
 
-def cache_to_file(file_name: str) -> Callable[..., Callable[..., Coroutine[Any, Any, Any]]]:
+def cache_to_file(folder_name: str) -> Callable[..., Callable[..., Coroutine[Any, Any, Any]]]:
     # Wrapps a function that (optionally) returns a coroutine and caches the result to a file
     # The parameters are thereby used as the cache key, so the function should be deterministic
+    def load_cache(folder_name: str) -> dict[str, Any]:
+        assert os.path.isdir(folder_name), f'"{folder_name}" is not a folder'
+
+        cache = {}
+        for file_name in os.listdir(folder_name):
+            if file_name.endswith('.json'):
+                try:
+                    cache.update(load_json(f'{folder_name}/{file_name}'))
+                except Exception:
+                    pass
+
+        return cache
 
     def decorator(func) -> Callable[..., Coroutine[Any, Any, Any]]:
         async def wrapper(*args, **kwargs):
-            cache = load_json(file_name) if os.path.exists(file_name) else {}
+            os.makedirs(folder_name, exist_ok=True)
+            cache = load_cache(folder_name)
             key = json.dumps(custom_asdict((args, kwargs)))
             if key in cache:
                 return cache[key]
 
             result = await func(*args, **kwargs)
 
-            # Reload the cache in case it was changed (e.g., by concurrent requests)
-            cache = load_json(file_name) if os.path.exists(file_name) else {}
-            cache[key] = custom_asdict(result)
-            dump_json(cache, file_name)
+            new_file_name = f'{folder_name}/{time.time()}.json'
+            dump_json({key: custom_asdict(result)}, new_file_name)
             return result
 
         return wrapper

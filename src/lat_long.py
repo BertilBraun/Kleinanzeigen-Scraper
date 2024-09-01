@@ -63,7 +63,7 @@ def distance(lat_lng1: tuple[float, float], lat_lng2: tuple[float, float]) -> fl
     return radius * c
 
 
-@cache_to_file('data/lat_lon_cache.json')
+@cache_to_file('data/lat_lon_cache')
 async def query_api_for_lat_lon(location: str) -> tuple[float, float]:
     """Query an API to get the latitude and longitude of the location."""
     url_encoded_parameters = urllib.parse.urlencode(

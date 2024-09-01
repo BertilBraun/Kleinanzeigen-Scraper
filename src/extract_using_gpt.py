@@ -2,10 +2,10 @@ import json
 import base64
 
 
-from src.config import MAX_NUM_IMAGES
+from src.config import MAX_NUM_IMAGES, OFFER_IMAGE_DIR
 from src.types_to_search import ALL_TYPES
 from src.types import DatabaseFactory, Entry, Offer, Uninteresting, to_readable_name
-from src.util import async_gpt_request, get_bytes, run_in_batches
+from src.util import async_gpt_request
 
 
 def base64_encode_image(image: bytes) -> str:
@@ -18,9 +18,21 @@ def get_example_image() -> str:
         return base64_encode_image(file.read())
 
 
-async def download_and_convert_images(image_urls: list[str]) -> list[str]:
-    image_bytes = await run_in_batches(image_urls, 5, get_bytes, desc=None)
-    return [base64_encode_image(image) for image in image_bytes]
+def load_and_convert_images_to_base64(offer_id: str, max_num_images: int) -> list[str]:
+    base64_images: list[str] = []
+
+    for i in range(max_num_images):
+        try:
+            with open(f'{OFFER_IMAGE_DIR}/{offer_id}/{i}.jpg', 'rb') as file:
+                base64_images.append(base64_encode_image(file.read()))
+        except FileNotFoundError:
+            # Assuming, that this offer did contain less than max_num_images images
+            break
+        except Exception as e:
+            print(f'Failed to read image file: {e}')
+            break
+
+    return base64_images
 
 
 def get_type_descriptions() -> str:
@@ -41,9 +53,9 @@ You should output the information in the following JSON format based on the type
 {all_type_descriptions}"""
 
 
-async def get_extraction_prompt(offer: Offer):
+def get_extraction_prompt(offer: Offer):
     base64_example_image = get_example_image()
-    base64_images = await download_and_convert_images(offer.image_urls[:MAX_NUM_IMAGES])
+    base64_images = load_and_convert_images_to_base64(offer.id, MAX_NUM_IMAGES)
 
     return [
         {
@@ -117,7 +129,7 @@ Description: {offer.description}""",
 
 
 async def extract_offer_details(offer: Offer, lat_long: tuple[float, float]) -> Entry:
-    success, res = await async_gpt_request(await get_extraction_prompt(offer), response_format={'type': 'json_object'})
+    success, res = await async_gpt_request(get_extraction_prompt(offer), response_format={'type': 'json_object'})
 
     if not success:
         print(f'Failed to get the response for offer: {offer.title} ({offer.link}) {offer.image_urls[:MAX_NUM_IMAGES]}')

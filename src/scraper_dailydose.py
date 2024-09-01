@@ -1,3 +1,4 @@
+import asyncio
 from bs4 import BeautifulSoup
 import pandas as pd
 
@@ -9,7 +10,7 @@ from src.types import Offer, User
 
 class ScraperDailyDose(BaseScraper):
     def __init__(self, max_pages_to_scrape: int = 1000):
-        super().__init__(offer_page_batch_size=10, max_offers_per_page=30, max_pages_to_scrape=max_pages_to_scrape)
+        super().__init__(offer_page_batch_size=5, max_offers_per_page=30, max_pages_to_scrape=max_pages_to_scrape)
 
     @overrides(BaseScraper)
     def filter_relevant_urls(self, urls: list[str]) -> list[str]:
@@ -68,6 +69,8 @@ class ScraperDailyDose(BaseScraper):
             scraped_on=pd.Timestamp.now(),
         )
 
+        await asyncio.sleep(1)  # Sleep for 1 second to avoid getting blocked
+
         return offer
 
     @overrides(BaseScraper)
@@ -84,5 +87,7 @@ class ScraperDailyDose(BaseScraper):
             href = a['href']
             if 'detail.htm' in href and 'ai=' in href:
                 links.append(BASE_URL_DAILYDOSE + '/' + href)
+
+        await asyncio.sleep(1)  # Sleep for 1 second to avoid getting blocked
 
         return links
