@@ -37,10 +37,10 @@ class BaseScraper:
                 self._scrape_all_offer_links_from_search_url,
                 desc='Scraping offer links',
             )
-        all_offer_links = set().union(*all_offer_links_list)
+        all_offer_links = [link for link in set().union(*all_offer_links_list) if link is not None and link != '']
 
         with timeblock(f'scraping all {len(all_offer_links)} offers'):
-            return await self._scrape_all_offers_from_offer_links(list(all_offer_links))
+            return await self._scrape_all_offers_from_offer_links(all_offer_links)
 
     @staticmethod
     async def scrape_offer_images(offers: list[Offer], offer_page_batch_size: int) -> None:
@@ -88,10 +88,14 @@ class BaseScraper:
             await asyncio.sleep(1)
             return True
 
-        return await run_in_batches(
-            all_offer_links,
-            self.offer_page_batch_size,
-            self.scrape_offer_url,
-            desc='Scraping offers',
-            after_batch=after_batch,
-        )
+        return [
+            offer
+            for offer in await run_in_batches(
+                all_offer_links,
+                self.offer_page_batch_size,
+                self.scrape_offer_url,
+                desc='Scraping offers',
+                after_batch=after_batch,
+            )
+            if offer is not None
+        ]
