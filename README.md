@@ -83,3 +83,5 @@ After you have implemented the scraper class, you need to add the scraper to the
 - Add other websites to scrape
   - [ ] Facebook Marketplace
 - [ ] More fine-grained search on Kleinanzeigen. Only search for sails, masts etc. instead of windsurfing sails, windsurfing masts - Let GPT filter out only windsurfing related stuff
+- [ ] Windmag.com seems to have a relatively good sail database. Maybe search in there for more information to complete the scraped entries (with another GPT call). Go to [here](https://www.windmag.com/voiles-2020-point-7-salt-pro), open the Network tab, then write something in the search box and look at the made request to <https://www.windmag.com/xwidget/testssearch/index2012?q=SEARCH_TERM>. That request could be copied after the brand and name of the sail has been extracted and send with the brand and name included in the search term. Be careful though. By far not all sails are included in there and the search is very sensitive, meaning, if it is no longer a direct match, then no items will be returned. (Also the entire website is in french as far as I saw).
+
