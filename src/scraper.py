@@ -31,13 +31,21 @@ class BaseScraper:
 
     async def scrape_all_offers(self, search_urls: list[str]) -> list[Offer]:
         with timeblock('scraping all offer links'):
-            all_offer_links_list = await run_in_batches(
+            all_offer_links_list: list[list[str] | None] = await run_in_batches(
                 self.filter_relevant_urls(search_urls),
                 self.offer_page_batch_size,
                 self._scrape_all_offer_links_from_search_url,
                 desc='Scraping offer links',
             )
-        all_offer_links = [link for link in set().union(*all_offer_links_list) if link is not None and link != '']
+        all_offer_links = list(
+            set().union(
+                link
+                for list in all_offer_links_list
+                if list is not None
+                for link in list
+                if link is not None and link != ''
+            )
+        )
 
         with timeblock(f'scraping all {len(all_offer_links)} offers'):
             return await self._scrape_all_offers_from_offer_links(all_offer_links)
@@ -67,9 +75,10 @@ class BaseScraper:
     async def _scrape_all_offer_links_from_search_url(self, search_url: str) -> list[str]:
         all_offer_links: set[str] = set()
 
-        async def after_batch(urls: list[list[str]]) -> bool:
+        async def after_batch(urls: list[list[str] | None]) -> bool:
             for url_list in urls:
-                all_offer_links.update(url_list)
+                if url_list is not None:
+                    all_offer_links.update(url_list)
             return len(all_offer_links) % self.max_offers_per_page != 0
 
         await run_in_batches(
@@ -83,7 +92,7 @@ class BaseScraper:
         return list(all_offer_links)
 
     async def _scrape_all_offers_from_offer_links(self, all_offer_links: list[str]) -> list[Offer]:
-        async def after_batch(_: list[Offer]) -> bool:
+        async def after_batch(_: list[Offer | None]) -> bool:
             await asyncio.sleep(1)
             return True
 

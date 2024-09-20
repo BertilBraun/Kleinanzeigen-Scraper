@@ -35,7 +35,7 @@ def partition_offers(
     # partition into: new offers which are not yet in the database, offers which are already in the database but still in the current offers, and offers which are no longer in the current offers
     new_offers: list[Offer] = []
 
-    for offer in all_current_offers:
+    for offer in set(all_current_offers):
         if not any(entry.metadata.offer.id == offer.id for entry in database_entries):
             new_offers.append(offer)
 
@@ -56,7 +56,10 @@ def filter_based_on_keywords(new_offers: list[Offer]) -> list[Offer]:
     return [
         offer
         for offer in new_offers
-        if not any(keyword.lower() in offer.title.lower() for keyword in ('gesucht', 'suche'))
+        if not any(
+            keyword.lower() in offer.title.lower()
+            for keyword in ('gesucht', 'suche', 'wing', 'kite', 'north face', 'neo', 'kind')
+        )
     ]
 
 
@@ -115,7 +118,7 @@ async def extract_new_offer_details(filtered_new_offers: list[tuple[Offer, tuple
             desc='Extracting offer details',
         )
 
-    return extracted_details
+    return [extracted_detail for extracted_detail in extracted_details if extracted_detail is not None]
 
 
 async def update_old_offers(old_offers: list[tuple[Offer, Entry]]) -> None:
@@ -173,8 +176,27 @@ async def filter_interesting_entries_using_gpt(entries: list[Entry]) -> tuple[st
             continue
 
         async def _is_entry_interesting(entry: Entry) -> Entry | None:
-            if await is_entry_interesting(entry, type_.__name__, interest or ''):
-                return entry
+            assert interest is not None
+
+            if (
+                interest.max_price
+                and isinstance(entry.metadata.price, float)
+                and entry.metadata.price > interest.max_price
+            ):
+                return None
+
+            if interest.max_distance and entry.metadata.closest_interest_location[1] > interest.max_distance:
+                return None
+
+            data = entry.to_excel()
+            for field, terms in interest.fields.items():
+                if not any(term in str(data[field].value).lower() for term in terms):
+                    return None
+
+            if interest.description and not await is_entry_interesting(entry, type_.__name__, interest.description):
+                return None
+
+            return entry
 
         interesting_entries_of_this_type = await run_in_batches(
             list_entries_of_type(entries, type_),

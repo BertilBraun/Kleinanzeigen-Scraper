@@ -20,14 +20,14 @@ async def run_in_batches(
     async_func: Callable[[T], Coroutine[Any, Any, R]],
     desc: str | None = 'Processing',
     do_ignore_errors: bool = True,
-    after_batch: Callable[[List[R]], Coroutine[Any, Any, bool]] = _after_batch_noop,
-) -> List[R]:
+    after_batch: Callable[[List[R | None]], Coroutine[Any, Any, bool]] = _after_batch_noop,
+) -> List[R | None]:
     # Run the async function for each item in the list in batches
     # and return the results in the correct order
     # After each batch, the after_batch function is called with the results of the batch, the function should return True to continue processing the next batch
 
     # Initialize a list to store results in the correct order
-    results: list[R] = [None] * len(items)  # type: ignore
+    results: list[R | None] = [None] * len(items)
 
     if not desc:
         iterable = range(0, len(items), batch_size)

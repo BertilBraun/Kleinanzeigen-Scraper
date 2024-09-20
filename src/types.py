@@ -74,6 +74,22 @@ class Offer:
             scraped_on=scraped_on,
         )
 
+    # hash method to compare offers
+    def __hash__(self) -> int:
+        return hash(
+            self.id
+            + self.title
+            + self.description
+            + self.price
+            + self.location
+            + self.date
+            + self.link
+            + str(self.sold)
+            + str(self.image_urls)
+            + str(self.scraped_on)
+            + str(self.user)
+        )
+
 
 class DatabaseFactory:
     @staticmethod
@@ -125,25 +141,26 @@ class Metadata:
             key=lambda x: (x[1], x[0]),
         )
 
+    @property
+    def price(self) -> float | str:
+        return parse_numeric(
+            self.offer.price.replace(',-', '')
+            .replace('.-', '')
+            .replace('-', '')
+            .replace(',', '.')
+            .replace('€', '')
+            .replace('Euro', '')
+            .replace('VB', '')
+            .replace('VHB', '')
+            .replace('vb', '')
+            .replace('vhb', '')
+            .strip()
+        )
+
     def to_excel(self) -> dict[str, ExcelExportType]:
         closest_place_name, min_distance = self.closest_interest_location
         return {
-            'Price': ExcelExportType(
-                number_format='#0 €',
-                value=parse_numeric(
-                    self.offer.price.replace(',-', '')
-                    .replace('.-', '')
-                    .replace('-', '')
-                    .replace(',', '.')
-                    .replace('€', '')
-                    .replace('Euro', '')
-                    .replace('VB', '')
-                    .replace('VHB', '')
-                    .replace('vb', '')
-                    .replace('vhb', '')
-                    .strip()
-                ),
-            ),
+            'Price': ExcelExportType(number_format='#0 €', value=self.price),
             'VB': ExcelExportType(
                 number_format=None, value='VB' if 'VB' in self.offer.price or 'VHB' in self.offer.price else ''
             ),
