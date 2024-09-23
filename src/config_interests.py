@@ -10,7 +10,8 @@ T = TypeVar('T', bound=ENTRY_TYPES)
 
 @dataclass
 class InterestRequest(Generic[T]):
-    description: str | None = None
+    description: str | None = None  # description to query GPT with, for GPT to decide if it's interesting or not
+    min_price: int | None = None
     max_price: int | None = None
     max_distance: int | None = None  # in km
     filter: Callable[[T], bool] | None = None
@@ -35,6 +36,7 @@ def mast_filter(mast: Mast) -> bool:
 
 INTERESTS: dict[type, InterestRequest] = {
     Sail: InterestRequest[Sail](
+        min_price=60,
         max_price=250,
         max_distance=130,
         filter=sail_filter,

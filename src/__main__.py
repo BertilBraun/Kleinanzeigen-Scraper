@@ -186,6 +186,13 @@ async def filter_interesting_entries_using_gpt(entries: list[Entry]) -> tuple[st
             ):
                 return None
 
+            if (
+                interest.min_price
+                and isinstance(entry.metadata.price, float)
+                and entry.metadata.price < interest.min_price
+            ):
+                return None
+
             if interest.max_distance and entry.metadata.closest_interest_location[1] > interest.max_distance:
                 return None
 
