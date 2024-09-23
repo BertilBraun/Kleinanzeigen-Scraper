@@ -2,6 +2,9 @@ from dataclasses import dataclass
 from typing import Callable, Generic, TypeVar
 from src.types_to_search import ENTRY_TYPES, Board, Sail, Mast, Boom  # noqa
 
+
+TITLE_NO_GO_KEYWORDS = ('gesucht', 'suche', 'wing', 'kite', 'north face', 'neo', 'kind')
+
 T = TypeVar('T', bound=ENTRY_TYPES)
 
 

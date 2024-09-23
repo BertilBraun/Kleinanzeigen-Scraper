@@ -164,7 +164,7 @@ class ScraperFacebook(BaseScraper):
         return offer
 
     @overrides(BaseScraper)
-    async def scrape_offer_links_from_search_url(self, base_url: str) -> List[str]:
+    async def scrape_offer_links_from_search_url(self, base_url: str) -> List[str | None]:
         self.browser.get(base_url)
 
         with ignore_error('Decline button clicked!', 'Could not find or click the optional cookies button!'):

@@ -52,13 +52,12 @@ def partition_offers(
 
 
 def filter_based_on_keywords(new_offers: list[Offer]) -> list[Offer]:
+    from src.config_interests import TITLE_NO_GO_KEYWORDS
+
     return [
         offer
         for offer in new_offers
-        if not any(
-            keyword.lower() in offer.title.lower()
-            for keyword in ('gesucht', 'suche', 'wing', 'kite', 'north face', 'neo', 'kind')
-        )
+        if not any(keyword.lower() in offer.title.lower() for keyword in TITLE_NO_GO_KEYWORDS)
     ]
 
 

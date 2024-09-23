@@ -25,7 +25,7 @@ class BaseScraper:
         ...
 
     @abstractmethod
-    async def scrape_offer_links_from_search_url(self, base_url: str) -> list[str]:
+    async def scrape_offer_links_from_search_url(self, base_url: str) -> list[str | None]:
         # Scrape the links to all offers from the provided search URL
         ...
 
@@ -74,12 +74,17 @@ class BaseScraper:
 
     async def _scrape_all_offer_links_from_search_url(self, search_url: str) -> list[str]:
         all_offer_links: set[str] = set()
+        filtered_out_urls: int = 0
 
-        async def after_batch(urls: list[list[str] | None]) -> bool:
+        async def after_batch(urls: list[list[str | None] | None]) -> bool:
+            nonlocal filtered_out_urls, all_offer_links
+
             for url_list in urls:
                 if url_list is not None:
-                    all_offer_links.update(url_list)
-            return len(all_offer_links) % self.max_offers_per_page != 0
+                    all_offer_links.update([url for url in url_list if url is not None])
+                    filtered_out_urls += sum(1 for url in url_list if url is None)
+
+            return (len(all_offer_links) + filtered_out_urls) % self.max_offers_per_page != 0
 
         await run_in_batches(
             list(range(1, self.max_pages_to_scrape)),

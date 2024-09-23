@@ -44,7 +44,6 @@ def plz_to_lat_long(plz: int) -> tuple[float, float]:
         if int(line_plz) == plz:
             return float(lat), float(long)
 
-    print(f'Postal code not found: {plz}')
     return 0, 0  # return a default value which is far away from any location, so that the offer is not considered
 
 
