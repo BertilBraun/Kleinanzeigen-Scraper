@@ -12,7 +12,6 @@ from src.config import (
     EMAILS_TO_NOTIFY,
     EXCEL_EXPORT_FILE,
     INTEREST_LOCATIONS,
-    INTERESTS,
     WINDSURF_SEARCH_URLS,
 )
 from src.lat_long import distance, extract_lat_long, plz_to_lat_long
@@ -105,7 +104,9 @@ async def extract_new_offer_details(filtered_new_offers: list[tuple[Offer, tuple
 
         async def _extract(offer_lat_long: tuple[Offer, tuple[float, float]]) -> Entry:
             offer, lat_long = offer_lat_long
-            return await extract_offer_details(offer, lat_long)
+            response = await extract_offer_details(offer, lat_long)
+            await asyncio.sleep(60)  # To not get rate limited
+            return response
 
         await BaseScraper.scrape_offer_images(
             [offer for offer, _ in filtered_new_offers],
@@ -166,13 +167,14 @@ Reply with "yes" if the offer is interesting, otherwise reply with "no".""",
 
 
 async def filter_interesting_entries_using_gpt(entries: list[Entry]) -> tuple[str, int]:
+    from src.config_interests import INTERESTS
     # Liste an stuff nach denen man sucht, GPT die neuen offers und die gesuchen items geben und ihn filtern lassen, welche davon relevant sind - daraus dann eine Notification
 
     interesting_entries = ''
     number_of_interesting_entries = 0
 
     for type_ in ALL_TYPES:
-        if not (interest := INTERESTS().get(type_, None)):
+        if not (interest := INTERESTS.get(type_, None)):
             continue
 
         async def _is_entry_interesting(entry: Entry) -> Entry | None:
@@ -188,10 +190,8 @@ async def filter_interesting_entries_using_gpt(entries: list[Entry]) -> tuple[st
             if interest.max_distance and entry.metadata.closest_interest_location[1] > interest.max_distance:
                 return None
 
-            data = entry.to_excel()
-            for field, terms in interest.fields.items():
-                if not any(term in str(data[field].value).lower() for term in terms):
-                    return None
+            if interest.filter and not interest.filter(entry):
+                return None
 
             if interest.description and not await is_entry_interesting(entry, type_.__name__, interest.description):
                 return None
