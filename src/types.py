@@ -175,9 +175,8 @@ class Metadata:
             'User name': ExcelExportType(number_format=None, value=self.offer.user.name),
             'All other offers': ExcelExportType(number_format=None, value=self.offer.user.all_offers_link),
             'Scraped on': ExcelExportType(number_format='DD/MM/YYYY HH:MM:SS', value=self.offer.scraped_on),
-            'Min Distance (km)': ExcelExportType(
-                number_format='#0', value=f'{min_distance:.2f} km to {closest_place_name}'
-            ),
+            'Min Distance (km)': ExcelExportType(number_format='#0', value=f'{min_distance:.2f}'),
+            'Closest place': ExcelExportType(number_format=None, value=closest_place_name),
         }
 
 
