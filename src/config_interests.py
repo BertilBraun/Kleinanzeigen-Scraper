@@ -3,7 +3,65 @@ from typing import Callable, Generic, Iterable, TypeVar
 from src.types_to_search import ENTRY_TYPES, Board, Sail, Mast, Boom, FullRig, FullSet  # noqa
 
 
-TITLE_NO_GO_KEYWORDS = ('gesucht', 'suche', 'wing', 'kite', 'north face', 'neo', 'kind')
+TITLE_NO_GO_KEYWORDS = ('gesucht', 'suche', 'wing', 'kite', 'north face', 'neo', 'kind', ' sup ')
+
+
+BASE_URL_KLEINANZEIGEN = 'https://www.kleinanzeigen.de'
+BASE_URL_DAILYDOSE = 'https://www.dailydose.de/kleinanzeigen'
+WINDSURF_SEARCH_URLS = [
+    BASE_URL_KLEINANZEIGEN + '/s-seite:{}/windsurf/k0',
+    BASE_URL_DAILYDOSE + '/windsurfboards.htm?pg={}',
+    BASE_URL_DAILYDOSE + '/windsurfsegel.htm?pg={}',
+    BASE_URL_DAILYDOSE + '/windsurfmasten.htm?pg={}',
+    BASE_URL_DAILYDOSE + '/windsurfgabeln.htm?pg={}',
+] + [
+    BASE_URL_KLEINANZEIGEN + '/s-freizeit-nachbarschaft/seite:{}/' + brand + '/k0c185'
+    for brand in [
+        'fanatic',
+        'jp-australia',
+        'starboard',
+        'tabou',
+        'rrd',
+        'naish',
+        'simmer',
+        'north',
+        'goya',
+        'gun-sails',
+        'point-7',
+        'severne',
+        # 'duotone',
+        'ezzy',
+        'loft-sails',
+        'neilpryde',
+        'sailloft',
+        'vandal',
+        'loftsails',
+        'gaastra',
+        # keywords
+        'freeride',
+        'freerace',
+        'slalom',
+        'blast',
+        'magic ride',
+        'gecko',
+        'firemove',
+    ]
+]
+
+# Format (PLZ, radius in km, name)
+INTEREST_LOCATIONS = [
+    (71034, 30, 'Böblingen'),
+    (76133, 100, 'Karlsruhe'),
+    # (77855, 30, 'Achern'),
+    # (77656, 30, 'Offenburg'),
+    # (77955, 30, 'Ettenheim'),
+    # (79100, 30, 'Freiburg'),
+    (79848, 30, 'Bonndorf'),
+    (50667, 100, 'Köln'),
+    (89073, 100, 'Ulm'),
+    (80331, 100, 'München'),
+    (71034, 2000, 'Böblingen'),  # Simply all of Germany
+]
 
 T = TypeVar('T', bound=ENTRY_TYPES)
 
@@ -17,7 +75,24 @@ class InterestRequest(Generic[T]):
     filter: Callable[[T], bool] | None = None
 
 
-INTERESTED_SAIL_SIZES = ('4.9', '5.0', '5.1', '5.2', '5.8', '5.9', '6.0', '6.1', '6.2', '8.3', '8.4', '8.5', '8.6')
+INTERESTED_SAIL_SIZES = (
+    '4.9',
+    '5.0',
+    '5.1',
+    '5.2',
+    '5.8',
+    '5.9',
+    '6.0',
+    '6.1',
+    '6.2',
+    '8.0',
+    '8.1',
+    '8.2',
+    '8.3',
+    '8.4',
+    '8.5',
+    '8.6',
+)
 STATE_NO_GO_KEYWORDS = ('repaired', 'demaged', 'defective')
 POINT_7 = ('point-7', 'point7')
 

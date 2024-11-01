@@ -5,15 +5,7 @@ from src.extract_using_gpt import extract_offer_details
 from src.scraper import BaseScraper
 from src.scraper_dailydose import ScraperDailyDose
 from src.scraper_kleinanzeigen import ScraperKleinanzeigen
-from src.config import (
-    CURRENT_OFFERS_FILE,
-    DB_FILE,
-    DO_REQUERY_OLD_OFFERS,
-    EMAILS_TO_NOTIFY,
-    EXCEL_EXPORT_FILE,
-    INTEREST_LOCATIONS,
-    WINDSURF_SEARCH_URLS,
-)
+from src.config import CURRENT_OFFERS_FILE, DB_FILE, DO_REQUERY_OLD_OFFERS, EMAILS_TO_NOTIFY, EXCEL_EXPORT_FILE
 from src.lat_long import distance, extract_lat_long, plz_to_lat_long
 from src.types import DatabaseFactory, Entry, Offer, list_entries_of_type
 from src.types_to_search import ALL_TYPES
@@ -62,6 +54,8 @@ def filter_based_on_keywords(new_offers: list[Offer]) -> list[Offer]:
 
 
 async def filter_based_on_location(new_offers: list[Offer]) -> list[tuple[Offer, tuple[float, float]]]:
+    from src.config_interests import INTEREST_LOCATIONS
+
     filtered_new_offers: list[tuple[Offer, tuple[float, float]]] = []
 
     for offer in new_offers:
@@ -268,6 +262,8 @@ async def update_entries_and_fetch_new_offers(all_offers: list[Offer]) -> list[E
 
 
 async def main():
+    from src.config_interests import WINDSURF_SEARCH_URLS
+
     all_offers: list[Offer] = []
     ALL_SCRAPERS: list[BaseScraper] = [
         ScraperKleinanzeigen(max_pages_to_scrape=25),
