@@ -1,21 +1,11 @@
 import json
 
-
 from src.excel_export import export_to_excel
 from src.extract_using_gpt import extract_offer_details
 from src.scraper import BaseScraper
 from src.scraper_dailydose import ScraperDailyDose
 from src.scraper_kleinanzeigen import ScraperKleinanzeigen
-from src.config import (
-    CURRENT_OFFERS_FILE,
-    DB_FILE,
-    DO_REQUERY_OLD_OFFERS,
-    EMAILS_TO_NOTIFY,
-    EXCEL_EXPORT_FILE,
-    INTEREST_LOCATIONS,
-    INTERESTS,
-    WINDSURF_SEARCH_URLS,
-)
+from src.config import CURRENT_OFFERS_FILE, DB_FILE, DO_REQUERY_OLD_OFFERS, EMAILS_TO_NOTIFY, EXCEL_EXPORT_FILE
 from src.lat_long import distance, extract_lat_long, plz_to_lat_long
 from src.types import DatabaseFactory, Entry, Offer, list_entries_of_type
 from src.types_to_search import ALL_TYPES
@@ -36,7 +26,7 @@ def partition_offers(
     # partition into: new offers which are not yet in the database, offers which are already in the database but still in the current offers, and offers which are no longer in the current offers
     new_offers: list[Offer] = []
 
-    for offer in all_current_offers:
+    for offer in set(all_current_offers):
         if not any(entry.metadata.offer.id == offer.id for entry in database_entries):
             new_offers.append(offer)
 
@@ -54,14 +44,18 @@ def partition_offers(
 
 
 def filter_based_on_keywords(new_offers: list[Offer]) -> list[Offer]:
+    from src.config_interests import TITLE_NO_GO_KEYWORDS
+
     return [
         offer
         for offer in new_offers
-        if not any(keyword.lower() in offer.title.lower() for keyword in ('gesucht', 'suche'))
+        if not any(keyword.lower() in offer.title.lower() for keyword in TITLE_NO_GO_KEYWORDS)
     ]
 
 
 async def filter_based_on_location(new_offers: list[Offer]) -> list[tuple[Offer, tuple[float, float]]]:
+    from src.config_interests import INTEREST_LOCATIONS
+
     filtered_new_offers: list[tuple[Offer, tuple[float, float]]] = []
 
     for offer in new_offers:
@@ -103,20 +97,22 @@ async def extract_new_offer_details(filtered_new_offers: list[tuple[Offer, tuple
 
         async def _extract(offer_lat_long: tuple[Offer, tuple[float, float]]) -> Entry:
             offer, lat_long = offer_lat_long
-            return await extract_offer_details(offer, lat_long)
+            response = await extract_offer_details(offer, lat_long)
+            await asyncio.sleep(60)  # To not get rate limited
+            return response
 
+        await BaseScraper.scrape_offer_images(
+            [offer for offer, _ in filtered_new_offers],
+            5,  # Min of all scrapers batch sizes
+        )
         extracted_details = await run_in_batches(
             filtered_new_offers,
-            5,
+            20,
             _extract,
             desc='Extracting offer details',
         )
-        await BaseScraper.scrape_offer_images(
-            [offer for offer, _ in filtered_new_offers],
-            5,
-        )
 
-    return extracted_details
+    return [extracted_detail for extracted_detail in extracted_details if extracted_detail is not None]
 
 
 async def update_old_offers(old_offers: list[tuple[Offer, Entry]]) -> None:
@@ -164,20 +160,52 @@ Reply with "yes" if the offer is interesting, otherwise reply with "no".""",
 
 
 async def filter_interesting_entries_using_gpt(entries: list[Entry]) -> tuple[str, int]:
+    from src.config_interests import INTERESTS
     # Liste an stuff nach denen man sucht, GPT die neuen offers und die gesuchen items geben und ihn filtern lassen, welche davon relevant sind - daraus dann eine Notification
 
     interesting_entries = ''
     number_of_interesting_entries = 0
 
     for type_ in ALL_TYPES:
-        if not (interest := INTERESTS().get(type_, None)):
+        if not (interest := INTERESTS.get(type_, None)):
             continue
 
-        interesting_entries_of_this_type = [
-            entry
-            for entry in list_entries_of_type(entries, type_)
-            if await is_entry_interesting(entry, type_.__name__, interest)
-        ]
+        async def _is_entry_interesting(entry: Entry) -> Entry | None:
+            assert interest is not None
+
+            if (
+                interest.max_price
+                and isinstance(entry.metadata.price, float)
+                and entry.metadata.price > interest.max_price
+            ):
+                return None
+
+            if (
+                interest.min_price
+                and isinstance(entry.metadata.price, float)
+                and entry.metadata.price < interest.min_price
+            ):
+                return None
+
+            if interest.max_distance and entry.metadata.closest_interest_location[1] > interest.max_distance:
+                return None
+
+            if interest.filter and not interest.filter(entry):
+                return None
+
+            if interest.description and not await is_entry_interesting(entry, type_.__name__, interest.description):
+                return None
+
+            return entry
+
+        interesting_entries_of_this_type = await run_in_batches(
+            list_entries_of_type(entries, type_),
+            20,
+            _is_entry_interesting,
+            desc=f'Filtering {type_.__name__}s',
+        )
+
+        interesting_entries_of_this_type = [entry for entry in interesting_entries_of_this_type if entry]
 
         if interesting_entries_of_this_type:
             interesting_entries += f'{type_.__name__}s:\n'
@@ -195,8 +223,11 @@ def get_entry_details_readable(entry: Entry) -> str:
     length_of_starting_text = len(text)
     for name, value in entry.to_excel(do_add_metadata=False).items():
         text += f'{name}: {value.value}\n'
-    text += f'Link: {entry.metadata.offer.link}\n'
     text += f'Price: {entry.metadata.offer.price}\n'
+    text += f'Location: {entry.metadata.offer.location}\n'
+    closest_location, distance_to_closest_location = entry.metadata.closest_interest_location
+    text += f'Closest interest location: {closest_location} ({distance_to_closest_location:.2f} km)\n'
+    text += f'Link: {entry.metadata.offer.link}\n'
     text += '-' * length_of_starting_text + '\n'
     return text
 
@@ -231,10 +262,12 @@ async def update_entries_and_fetch_new_offers(all_offers: list[Offer]) -> list[E
 
 
 async def main():
+    from src.config_interests import WINDSURF_SEARCH_URLS
+
     all_offers: list[Offer] = []
     ALL_SCRAPERS: list[BaseScraper] = [
-        ScraperKleinanzeigen(max_pages_to_scrape=10),
-        ScraperDailyDose(max_pages_to_scrape=5),
+        ScraperKleinanzeigen(max_pages_to_scrape=25),
+        ScraperDailyDose(max_pages_to_scrape=10),
     ]
     for scraper in ALL_SCRAPERS:
         all_offers.extend(await scraper.scrape_all_offers(WINDSURF_SEARCH_URLS))

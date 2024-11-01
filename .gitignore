@@ -10,3 +10,5 @@ src/config.py
 last_run_date.txt
 
 offer_images/**
+
+!data/example_db.json

@@ -11,6 +11,8 @@ function Get-YesterdayDate {
 function Run-Script {
     Write-Output "Running python -m src"
     python -m src
+    # copy export.xlsx to C:\Users\berti\OneDrive\Docs\export.xlsx
+    Copy-Item -Path "export.xlsx" -Destination "C:\Users\berti\OneDrive\Docs\export.xlsx"
 }
 
 function Update-LastRunDate {
@@ -36,7 +38,7 @@ function Main {
             $lastRunDate = ""
         }
 
-        if ($currentHour -ge 13) {
+        if ($currentHour -ge 17) {
             if ($lastRunDate -ne $currentDate) {
                 Run-Script
                 Update-LastRunDate -date $currentDate
@@ -45,7 +47,7 @@ function Main {
                 Write-Output "Last run date is today."
             }
         } else {
-            Write-Output "It is not yet 1 PM."
+            Write-Output "It is not yet 5 PM."
         }
 
         Start-Sleep -Seconds 3600

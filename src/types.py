@@ -74,6 +74,22 @@ class Offer:
             scraped_on=scraped_on,
         )
 
+    # hash method to compare offers
+    def __hash__(self) -> int:
+        return hash(
+            self.id
+            + self.title
+            + self.description
+            + self.price
+            + self.location
+            + self.date
+            + self.link
+            + str(self.sold)
+            + str(self.image_urls)
+            + str(self.scraped_on)
+            + str(self.user)
+        )
+
 
 class DatabaseFactory:
     @staticmethod
@@ -114,24 +130,37 @@ class Metadata:
         offer = Offer.from_json(json_data['offer'])
         return Metadata(offer=offer, type=json_data['type'], lat_long=json_data['lat_long'])
 
-    def to_excel(self) -> dict[str, ExcelExportType]:
-        min_distance, closest_place_name = min(
-            (distance(self.lat_long, plz_to_lat_long(location)), name) for location, _, name in INTEREST_LOCATIONS
+    @property
+    def distance_to_interest_locations(self) -> dict[str, float]:
+        return {name: distance(self.lat_long, plz_to_lat_long(location)) for location, _, name in INTEREST_LOCATIONS}
+
+    @property
+    def closest_interest_location(self) -> tuple[str, float]:
+        return min(
+            self.distance_to_interest_locations.items(),
+            key=lambda x: (x[1], x[0]),
         )
+
+    @property
+    def price(self) -> float | str:
+        return parse_numeric(
+            self.offer.price.replace(',-', '')
+            .replace('.-', '')
+            .replace('-', '')
+            .replace(',', '.')
+            .replace('€', '')
+            .replace('Euro', '')
+            .replace('VB', '')
+            .replace('VHB', '')
+            .replace('vb', '')
+            .replace('vhb', '')
+            .strip()
+        )
+
+    def to_excel(self) -> dict[str, ExcelExportType]:
+        closest_place_name, min_distance = self.closest_interest_location
         return {
-            'Price': ExcelExportType(
-                number_format='#0 €',
-                value=parse_numeric(
-                    self.offer.price.replace(',-', '')
-                    .replace('.-', '')
-                    .replace(',', '.')
-                    .replace('€', '')
-                    .replace('Euro', '')
-                    .replace('VB', '')
-                    .replace('VHB', '')
-                    .strip()
-                ),
-            ),
+            'Price': ExcelExportType(number_format='#0 €', value=self.price),
             'VB': ExcelExportType(
                 number_format=None, value='VB' if 'VB' in self.offer.price or 'VHB' in self.offer.price else ''
             ),
@@ -146,9 +175,8 @@ class Metadata:
             'User name': ExcelExportType(number_format=None, value=self.offer.user.name),
             'All other offers': ExcelExportType(number_format=None, value=self.offer.user.all_offers_link),
             'Scraped on': ExcelExportType(number_format='DD/MM/YYYY HH:MM:SS', value=self.offer.scraped_on),
-            'Min Distance (km)': ExcelExportType(
-                number_format='#0', value=f'{min_distance:.2f} km to {closest_place_name}'
-            ),
+            'Min Distance (km)': ExcelExportType(number_format='#0', value=f'{min_distance:.2f}'),
+            'Closest place': ExcelExportType(number_format=None, value=closest_place_name),
         }
 
 
@@ -181,7 +209,7 @@ class Entry:
 
     @classmethod
     def from_json(cls, metadata: Metadata, json_data: dict) -> Entry:
-        parameters = {f.name: json_data.get(f.name, '') for f in fields(cls) if is_parameter(f)}
+        parameters = {f.name: json_data.get(f.name, '').replace('N/A', '') for f in fields(cls) if is_parameter(f)}
 
         return cls(metadata=metadata, **parameters)
 

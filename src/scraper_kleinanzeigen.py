@@ -76,7 +76,9 @@ class ScraperKleinanzeigen(BaseScraper):
         return offer
 
     @overrides(BaseScraper)
-    async def scrape_offer_links_from_search_url(self, base_url: str) -> list[str]:
+    async def scrape_offer_links_from_search_url(self, base_url: str) -> list[str | None]:
+        from src.config_interests import TITLE_NO_GO_KEYWORDS
+
         # Send a GET request to the specified URL
         html_content = await get(base_url)
 
@@ -84,11 +86,15 @@ class ScraperKleinanzeigen(BaseScraper):
         soup = BeautifulSoup(html_content, 'html.parser')
 
         # Find all <a> tags and filter by href attribute
-        links: list[str] = []
+        links: list[str | None] = []
         for a in soup.find_all('article'):
             href = a['data-href']
             # Check if 's-anzeige' is in the URL and if the URL starts with the expected path
             if 's-anzeige' in href and href.startswith('/s-anzeige/'):
-                links.append(BASE_URL_KLEINANZEIGEN + href)
+                # check if the title contains any of the no-go keywords
+                if any(keyword in href.lower() for keyword in TITLE_NO_GO_KEYWORDS):
+                    links.append(None)
+                else:
+                    links.append(BASE_URL_KLEINANZEIGEN + href)
 
         return links
