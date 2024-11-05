@@ -8,7 +8,7 @@ from dataclasses import Field, dataclass, field, fields
 from typing import Callable
 
 
-from src.config import INTEREST_LOCATIONS, OFFER_IMAGE_DIR
+from src.config import OFFER_IMAGE_DIR
 from src.lat_long import distance, plz_to_lat_long
 from src.util import log_all_exceptions, to_lower_snake_case, parse_numeric, to_readable_name, overrides
 
@@ -132,6 +132,8 @@ class Metadata:
 
     @property
     def distance_to_interest_locations(self) -> dict[str, float]:
+        from src.config_interests import INTEREST_LOCATIONS
+
         return {name: distance(self.lat_long, plz_to_lat_long(location)) for location, _, name in INTEREST_LOCATIONS}
 
     @property

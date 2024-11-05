@@ -2,7 +2,7 @@ import asyncio
 from bs4 import BeautifulSoup
 import pandas as pd
 
-from src.config import BASE_URL_DAILYDOSE
+from src.config_interests import BASE_URL_DAILYDOSE
 from src.util import get, overrides
 from src.scraper import BaseScraper
 from src.types import Offer, User
