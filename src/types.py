@@ -4,10 +4,8 @@ import json
 
 import pandas as pd
 
-from dataclasses import Field, dataclass, field, fields, is_dataclass
-from typing import Callable, Literal, Type, Any
-
-from pydantic import BaseModel, Field as pd_Field, create_model
+from dataclasses import Field, dataclass, field, fields
+from typing import Callable
 
 
 from src.config import OFFER_IMAGE_DIR
@@ -210,29 +208,6 @@ class Entry:
                 description_dict[f.name] = f.metadata['description']
 
         return json.dumps(description_dict, indent=2, ensure_ascii=False)
-
-    @classmethod
-    def generate_pydantic_model_from_dataclass(cls) -> Type[BaseModel]:
-        """
-        Create a Pydantic model dynamically based on a dataclass.
-        This function assumes that parameters decorated with your custom
-        'parameter' have a 'description' in their metadata.
-        """
-        pd_fields: dict[str, Any] = {
-            'type': (Literal[to_lower_snake_case(cls.__name__)], pd_Field(..., description='Type of the entry'))
-        }
-        for f in fields(cls):
-            if is_dataclass(f.type):
-                # If the field type is a dataclass, use it as a nested model.
-                pd_fields[f.name] = (
-                    f.type.generate_pydantic_model_from_dataclass(),  # type: ignore
-                    pd_Field(..., description=f.metadata['description']),
-                )
-            elif is_parameter(f):
-                # Here, f.type should already represent the field type.
-                pd_fields[f.name] = (f.type, pd_Field(..., description=f.metadata['description']))
-        model_name = cls.__name__ + 'Model'
-        return create_model(model_name, **pd_fields)
 
     @classmethod
     def from_json(cls, metadata: Metadata, json_data: dict) -> Entry:

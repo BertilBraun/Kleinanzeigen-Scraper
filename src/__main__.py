@@ -1,7 +1,4 @@
 import json
-from typing import Literal
-
-from pydantic import BaseModel
 
 from src.excel_export import export_to_excel
 from src.extract_using_gpt import extract_offer_details
@@ -143,32 +140,23 @@ async def update_old_offers(old_offers: list[tuple[Offer, Entry]]) -> None:
 
 
 async def is_entry_interesting(entry: Entry, type_name: str, interest: str) -> bool:
-    class YesNoResponse(BaseModel):
-        answer: Literal['yes', 'no']
-
-    entry_items = '\n'.join(f'{name}: {value}' for name, value in entry.to_excel(do_add_metadata=False).items())
-
-    response = await async_gpt_request(
+    success, res = await async_gpt_request(
         [
             {
-                'role': 'user',
-                'content': f"""The following offer is a windsurfing offer:
----
-New offer:{entry.metadata.offer.title}
-{entry_items}
-Description: {entry.metadata.offer.description}
-Price: {entry.metadata.offer.price}
----
-
-I am currently interested in the following {type_name}s: {interest}
-
-Is this offer interesting for me?""",
+                'role': 'system',
+                'content': 'You are a helpful assistant who is going to help me filter new windsurfing offers. Please only respond with "yes" or "no". Your job is to tell me if the offer is interesting or not.',
             },
-        ],
-        YesNoResponse,
+            {
+                'role': 'user',
+                'content': f"""The following offer is a new windsurfing offer:
+{get_entry_details_readable(entry)}
+I am currently interested in the following {type_name}s: {interest}
+Reply with "yes" if the offer is interesting, otherwise reply with "no".""",
+            },
+        ]
     )
 
-    return response is not None and response.answer == 'yes'
+    return success and res.lower() == 'yes'
 
 
 async def filter_interesting_entries_using_gpt(entries: list[Entry]) -> tuple[str, int]:
