@@ -2,6 +2,9 @@ import os
 import asyncio
 
 from abc import abstractmethod
+from typing import Optional
+
+import aiohttp
 
 from src.config import OFFER_IMAGE_DIR
 from src.types import Offer
@@ -52,6 +55,8 @@ class BaseScraper:
 
     @staticmethod
     async def scrape_offer_images(offers: list[Offer], offer_page_batch_size: int) -> None:
+        return  # TODO for now, we don't want to scrape images
+
         async def _scrape_offer_images(offer: Offer) -> None:
             offer_folder = f'{OFFER_IMAGE_DIR}/{offer.id}/'
 
@@ -84,12 +89,24 @@ class BaseScraper:
                     all_offer_links.update([url for url in url_list if url is not None])
                     filtered_out_urls += sum(1 for url in url_list if url is None)
 
-            return (len(all_offer_links) + filtered_out_urls) % self.max_offers_per_page != 0
+            should_continue = (len(all_offer_links) + filtered_out_urls) % self.max_offers_per_page == 0
+
+            if not should_continue:
+                print(f'Filtered out {filtered_out_urls} URLs from {len(all_offer_links)} total URLs.')
+
+            return should_continue
+
+        async def scrape_offer_links_from_search_url(page: int) -> list[str | None]:
+            try:
+                return await self.scrape_offer_links_from_search_url(search_url.format(page))
+            except aiohttp.ClientResponseError:
+                print(f'Failed to scrape search URL: {search_url.format(page)}')
+                return []
 
         await run_in_batches(
             list(range(1, self.max_pages_to_scrape)),
             self.offer_page_batch_size,
-            lambda page: self.scrape_offer_links_from_search_url(search_url.format(page)),
+            scrape_offer_links_from_search_url,
             desc=None,
             after_batch=after_batch,
         )
@@ -101,12 +118,19 @@ class BaseScraper:
             await asyncio.sleep(1)
             return True
 
+        async def scrape_offer_url(offer_url: str) -> Optional[Offer]:
+            try:
+                return await self.scrape_offer_url(offer_url)
+            except aiohttp.ClientResponseError:
+                print(f'Failed to scrape offer URL: {offer_url}')
+                return None
+
         return [
             offer
             for offer in await run_in_batches(
                 all_offer_links,
                 self.offer_page_batch_size,
-                self.scrape_offer_url,
+                scrape_offer_url,
                 desc='Scraping offers',
                 after_batch=after_batch,
             )

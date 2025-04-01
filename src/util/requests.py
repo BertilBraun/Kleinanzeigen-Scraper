@@ -7,7 +7,13 @@ async def get(url: str) -> str:
 
     async with aiohttp.ClientSession(headers={'User-Agent': 'Mozilla/5.0'}) as session:
         async with session.get(url, ssl=False) as response:
-            response.raise_for_status()  # Raises an HTTPError for bad responses (4XX, 5XX)
+            if response.status != 200:
+                print(f'Error: {response.status} {response.reason} - {url}')
+                raise aiohttp.ClientResponseError(
+                    request_info=response.request_info,
+                    history=response.history,
+                    status=response.status,
+                )
             return await response.text()
 
 
@@ -17,5 +23,11 @@ async def get_bytes(url: str) -> bytes:
 
     async with aiohttp.ClientSession(headers={'User-Agent': 'Mozilla/5.0'}) as session:
         async with session.get(url, ssl=False) as response:
-            response.raise_for_status()  # Raises an HTTPError for bad responses (4XX, 5XX)
+            if response.status != 200:
+                print(f'Error: {response.status} {response.reason} - {url}')
+                raise aiohttp.ClientResponseError(
+                    request_info=response.request_info,
+                    history=response.history,
+                    status=response.status,
+                )
             return await response.read()

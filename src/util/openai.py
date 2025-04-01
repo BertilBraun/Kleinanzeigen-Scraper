@@ -39,7 +39,7 @@ async def async_gpt_request(
     client = AsyncOpenAI(api_key=OPENAI_API_KEY, base_url=OPENAI_BASE_URL)
 
     try:
-        response = await client.beta.chat.completions.parse(
+        response = await client.chat.completions.create(
             model=LLM_MODEL_ID,
             messages=prompt,
             temperature=temperature,
