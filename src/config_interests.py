@@ -18,33 +18,34 @@ WINDSURF_SEARCH_URLS = [
     BASE_URL_KLEINANZEIGEN + '/s-freizeit-nachbarschaft/seite:{}/' + brand + '/k0c185'
     for brand in [
         'fanatic',
-        'jp-australia',
-        'starboard',
-        'tabou',
-        'rrd',
-        'naish',
-        'simmer',
+        # 'jp-australia',
+        # 'starboard',
+        # 'tabou',
+        # 'rrd',
+        # 'naish',
+        # 'simmer',
         'north',
         'goya',
+        'gunsails',
         'gun-sails',
-        'point-7',
+        # 'point-7',
         'severne',
-        # 'duotone',
-        'ezzy',
-        'loft-sails',
+        'duotone warp',
+        'duotone s pace',
+        'duotone s type',
+        'duotone e pace',
+        'duotone e type',
+        'north sails',
         'neilpryde',
-        'sailloft',
-        'vandal',
-        'loftsails',
-        'gaastra',
+        # 'gaastra',
         # keywords
-        'freeride',
+        # 'freeride',
         'freerace',
         'slalom',
-        'blast',
-        'magic ride',
-        'gecko',
-        'firemove',
+        # 'blast',
+        # 'magic ride',
+        # 'gecko',
+        # 'firemove',
     ]
 ]
 
@@ -80,20 +81,15 @@ INTERESTED_SAIL_SIZES = (
     '5.0',
     '5.1',
     '5.2',
+    '5.3',
+    '5.4',
+    '5.5',
+    '5.6',
+    '5.7',
     '5.8',
     '5.9',
-    '6.0',
-    '6.1',
-    '6.2',
-    '8.0',
-    '8.1',
-    '8.2',
-    '8.3',
-    '8.4',
-    '8.5',
-    '8.6',
 )
-STATE_NO_GO_KEYWORDS = ('repaired', 'demaged', 'defective')
+STATE_NO_GO_KEYWORDS = []  # ('repaired', 'demaged', 'defective')
 POINT_7 = ('point-7', 'point7')
 
 
@@ -107,16 +103,15 @@ def not_contains(string: str, words: Iterable[str]) -> bool:
 
 def sail_filter(sail: Sail) -> bool:
     if contains(sail.brand, POINT_7):
-        return True
+        return False
 
     size_ok = contains(sail.size, INTERESTED_SAIL_SIZES)
     state_ok = not_contains(sail.state, STATE_NO_GO_KEYWORDS)
 
     price = sail.metadata.price
-    price_ok = True if isinstance(price, str) else (60 <= price <= 250)
-    slalom_ok = not_contains(sail.sail_type, ('slalom',))
+    price_ok = True if isinstance(price, str) else (60 <= price <= 450)
 
-    return state_ok and size_ok and price_ok and slalom_ok
+    return state_ok and size_ok and price_ok
 
 
 def mast_filter(mast: Mast) -> bool:

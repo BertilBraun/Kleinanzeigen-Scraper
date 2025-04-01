@@ -6,7 +6,7 @@ import random
 import time
 from contextlib import contextmanager
 
-from typing import Any, Callable, Coroutine, Generator
+from typing import Any, Callable, Coroutine, Generator, TypeVar
 
 from src.util.json import custom_asdict, dump_json, load_json
 
@@ -99,7 +99,12 @@ def generate_hashcode(data: Any) -> str:
     return hash_object.hexdigest()
 
 
-def cache_to_folder(folder_name: str) -> Callable[..., Callable[..., Coroutine[Any, Any, Any]]]:
+T = TypeVar('T')
+
+
+def cache_to_folder(
+    folder_name: str,
+) -> Callable[[Callable[..., Coroutine[Any, Any, T]]], Callable[..., Coroutine[Any, Any, T]]]:
     # Wrapps a function that (optionally) returns a coroutine and caches the result to a file
     # The parameters are thereby used as the cache key, so the function should be deterministic
     def load_cache(folder_name: str) -> dict[str, Any]:
@@ -123,8 +128,8 @@ def cache_to_folder(folder_name: str) -> Callable[..., Callable[..., Coroutine[A
 
         return cache
 
-    def decorator(func) -> Callable[..., Coroutine[Any, Any, Any]]:
-        async def wrapper(*args, **kwargs):
+    def decorator(func: Callable[..., Coroutine[Any, Any, T]]) -> Callable[..., Coroutine[Any, Any, T]]:
+        async def wrapper(*args: Any, **kwargs: Any) -> T:
             os.makedirs(folder_name, exist_ok=True)
             cache = load_cache(folder_name)
             key = generate_hashcode((args, kwargs))

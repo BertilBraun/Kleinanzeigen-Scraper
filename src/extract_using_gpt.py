@@ -1,5 +1,8 @@
 import json
 import base64
+from typing import Union
+
+from pydantic import BaseModel
 
 
 from src.config import MAX_NUM_IMAGES, OFFER_IMAGE_DIR
@@ -53,14 +56,21 @@ You should output the information in the following JSON format based on the type
 {all_type_descriptions}"""
 
 
+def get_type_basemodels() -> type[BaseModel]:
+    all_types = Union[*[t.generate_pydantic_model_from_dataclass() for t in ALL_TYPES]]
+    return all_types
+
+
 def get_extraction_prompt(offer: Offer):
-    base64_example_image = get_example_image()
-    base64_images = load_and_convert_images_to_base64(offer.id, MAX_NUM_IMAGES)
+    # base64_example_image = get_example_image()
+    # base64_images = load_and_convert_images_to_base64(offer.id, MAX_NUM_IMAGES)
 
     return [
         {
             'role': 'system',
-            'content': f"""You are a helpful assistant that extracts information from offers related to Windsurf equipment and converts it into a specific JSON format. {get_type_descriptions()}
+            'content': f"""You are a helpful assistant that extracts information from offers related to Windsurf equipment and converts it into a specific JSON format.
+            
+{get_type_descriptions()}
 
 If the type of equipment cannot be determined or is not relevant to usable windsurf equipment, use:
 ```json
@@ -68,31 +78,17 @@ If the type of equipment cannot be determined or is not relevant to usable winds
   "type": "N/A"
 }}
 ```
-This will be for items like child equipment, courses, toys, display figures, etc. which are not relevant to windsurfing.
-
-""",
+This will be for items like child equipment, courses, toys, display figures, etc. which are not relevant to windsurfing like kitesurf equipment, winging equipment etc.""",
         },
         {
             'role': 'user',
-            'content': [
-                {
-                    'type': 'text',
-                    'text': """As an example, let's extract the details of the following offer:
+            'content': """As an example, let's extract the details of the following offer:
 ---
 
 Convert the following offer into the appropriate JSON format:
 
 Title: North Spectro 6.5 Surfsegel Windsurfen
 Description: Segel mit wenigen Gebrauchsspuren. 2 Band-Camber als Profilgeber. Ein kleiner getapteter Cut im Unterliek. gerne auch mit Carbonmast + 20€""",
-                },
-                {
-                    'type': 'image_url',
-                    'image_url': {
-                        'url': f'data:image/png;base64,{base64_example_image}',
-                        'detail': 'low',  # The image is already downsampled to 512x512
-                    },
-                },
-            ],
         },
         {
             'role': 'assistant',
@@ -108,30 +104,18 @@ Description: Segel mit wenigen Gebrauchsspuren. 2 Band-Camber als Profilgeber. E
         },
         {
             'role': 'user',
-            'content': [
-                {
-                    'type': 'text',
-                    'text': f"""Convert the following offer into the appropriate JSON format:
+            'content': f"""Convert the following offer into the appropriate JSON format:
 
 Title: {offer.title}
 Description: {offer.description}""",
-                },
-                *[
-                    {
-                        'type': 'image_url',
-                        'image_url': {'url': f'data:image/png;base64,{image}', 'detail': 'low'},
-                    }
-                    for image in base64_images
-                ],
-            ],
         },
     ]
 
 
 async def extract_offer_details(offer: Offer, lat_long: tuple[float, float]) -> Entry:
-    success, res = await async_gpt_request(get_extraction_prompt(offer), response_format={'type': 'json_object'})
+    response = await async_gpt_request(get_extraction_prompt(offer), response_format={'type': 'json_object'})
 
-    if not success:
+    if not response:
         print(f'Failed to get the response for offer: {offer.title} ({offer.link}) {offer.image_urls[:MAX_NUM_IMAGES]}')
         return Uninteresting.from_offer(offer, lat_long)
 
