@@ -45,7 +45,7 @@ async def async_gpt_request(
             temperature=temperature,
             response_format=response_format,
         )
-    except Exception:
-        return False, ''
+    except Exception as e:
+        return False, repr(e)
 
     return response.choices[0].message.content is not None, response.choices[0].message.content or ''

@@ -95,24 +95,29 @@ def update_sold_status(
 async def extract_new_offer_details(filtered_new_offers: list[tuple[Offer, tuple[float, float]]]) -> list[Entry]:
     with timeblock('extracting the details of the new offers'):
 
-        async def _extract(offer_lat_long: tuple[Offer, tuple[float, float]]) -> Entry:
+        async def _extract(offer_lat_long: tuple[Offer, tuple[float, float]]) -> list[Entry]:
             offer, lat_long = offer_lat_long
             response = await extract_offer_details(offer, lat_long)
-            await asyncio.sleep(10)  # To not get rate limited
+            await asyncio.sleep(60)  # To not get rate limited
             return response
 
         await BaseScraper.scrape_offer_images(
             [offer for offer, _ in filtered_new_offers],
             5,  # Min of all scrapers batch sizes
         )
-        extracted_details = await run_in_batches(
+        details = await run_in_batches(
             filtered_new_offers,
-            20,
+            15,
             _extract,
             desc='Extracting offer details',
         )
 
-    return [extracted_detail for extracted_detail in extracted_details if extracted_detail is not None]
+    return [
+        extracted_detail
+        for extracted_details in details
+        for extracted_detail in extracted_details or []
+        if extracted_detail is not None
+    ]
 
 
 async def update_old_offers(old_offers: list[tuple[Offer, Entry]]) -> None:
@@ -121,6 +126,7 @@ async def update_old_offers(old_offers: list[tuple[Offer, Entry]]) -> None:
             title_is_longer = len(offer.title) > len(entry.metadata.offer.title)
             description_is_longer = len(offer.description) > len(entry.metadata.offer.description)
             if (title_is_longer or description_is_longer) and DO_REQUERY_OLD_OFFERS:
+                assert False, 'Currently unsupported as new_entry_details could be a different list of entries than the one to update (LLMs...)'
                 print(
                     f'Offer {offer.id} has a longer title or description than the one in the database. Re-extracting the details.'
                 )
@@ -266,8 +272,10 @@ async def main():
 
     all_offers: list[Offer] = []
     ALL_SCRAPERS: list[BaseScraper] = [
-        ScraperKleinanzeigen(max_pages_to_scrape=25),
-        ScraperDailyDose(max_pages_to_scrape=10),
+        # ScraperKleinanzeigen(max_pages_to_scrape=25),
+        # ScraperDailyDose(max_pages_to_scrape=10),
+        ScraperKleinanzeigen(max_pages_to_scrape=5),
+        ScraperDailyDose(max_pages_to_scrape=5),
     ]
     for scraper in ALL_SCRAPERS:
         all_offers.extend(await scraper.scrape_all_offers(WINDSURF_SEARCH_URLS))

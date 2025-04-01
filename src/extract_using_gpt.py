@@ -128,19 +128,23 @@ Description: {offer.description}""",
     ]
 
 
-async def extract_offer_details(offer: Offer, lat_long: tuple[float, float]) -> Entry:
+async def extract_offer_details(offer: Offer, lat_long: tuple[float, float]) -> list[Entry]:
     success, res = await async_gpt_request(get_extraction_prompt(offer), response_format={'type': 'json_object'})
 
     if not success:
-        print(f'Failed to get the response for offer: {offer.title} ({offer.link}) {offer.image_urls[:MAX_NUM_IMAGES]}')
-        return Uninteresting.from_offer(offer, lat_long)
+        print(f'Failed to get the response for offer: {offer.title} ({offer.link}): {res}')
+        return [Uninteresting.from_offer(offer, lat_long)]
 
     try:
         json_data = json.loads(res)
-        if json_data['type'].lower() == 'n/a':
-            return Uninteresting.from_offer(offer, lat_long)
 
-        return DatabaseFactory.parse_parial_entry(json_data, offer, lat_long)
+        if isinstance(json_data, list):
+            return [DatabaseFactory.parse_parial_entry(data, offer, lat_long) for data in json_data]
+
+        if json_data['type'].lower() == 'n/a':
+            return [Uninteresting.from_offer(offer, lat_long)]
+
+        return [DatabaseFactory.parse_parial_entry(json_data, offer, lat_long)]
     except Exception:
         print('Failed to parse the JSON response:', res)
-        return Uninteresting.from_offer(offer, lat_long)
+        return [Uninteresting.from_offer(offer, lat_long)]
