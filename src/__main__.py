@@ -10,6 +10,7 @@ from src.lat_long import distance, extract_lat_long, plz_to_lat_long
 from src.types import DatabaseFactory, Entry, Offer, list_entries_of_type
 from src.types_to_search import ALL_TYPES
 from src.util import timeblock, dump_json, send_mail, date_str, async_gpt_request, run_in_batches
+from src.util.string import parse_numeric
 
 
 def load_database(path: str) -> list[Entry]:
@@ -190,6 +191,14 @@ async def filter_interesting_entries_using_gpt(entries: list[Entry]) -> tuple[st
                 interest.min_price
                 and isinstance(entry.metadata.price, float)
                 and entry.metadata.price < interest.min_price
+            ):
+                return None
+
+            if (
+                interest.min_year
+                and hasattr(entry, 'year')
+                and not isinstance(parse_numeric(entry.year), str)  # type: ignore
+                and parse_numeric(entry.year) >= interest.min_year  # type: ignore
             ):
                 return None
 

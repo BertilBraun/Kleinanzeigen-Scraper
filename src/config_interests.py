@@ -37,6 +37,7 @@ WINDSURF_SEARCH_URLS = [
         'duotone e type',
         'north sails',
         'neilpryde',
+        'patrik',
         # 'gaastra',
         # keywords
         # 'freeride',
@@ -58,10 +59,10 @@ INTEREST_LOCATIONS = [
     # (77955, 30, 'Ettenheim'),
     # (79100, 30, 'Freiburg'),
     (79848, 30, 'Bonndorf'),
-    (50667, 100, 'Köln'),
+    (50667, 60, 'Köln'),
     (89073, 100, 'Ulm'),
     (80331, 100, 'München'),
-    (71034, 2000, 'Böblingen'),  # Simply all of Germany
+    # (71034, 2000, 'Böblingen'),  # Simply all of Germany
 ]
 
 T = TypeVar('T', bound=ENTRY_TYPES)
@@ -72,6 +73,7 @@ class InterestRequest(Generic[T]):
     description: str | None = None  # description to query GPT with, for GPT to decide if it's interesting or not
     min_price: int | None = None
     max_price: int | None = None
+    min_year: int | None = None  # year of manufacture (2012, 2013, ...)
     max_distance: int | None = None  # in km
     filter: Callable[[T], bool] | None = None
 
@@ -89,16 +91,34 @@ INTERESTED_SAIL_SIZES = (
     '5.8',
     '5.9',
 )
+INTERESTED_SAILS = (
+    'warp',
+    's type',
+    'e type',
+    'e pace',
+    's pace',
+    'gs-r',
+    'gs r',
+    'vector',
+    'mach',
+    'v8',
+    'moto',
+    'gt-3',
+    'patrik',
+    'turbo',
+    'speedster',
+    'ncx',
+)
 STATE_NO_GO_KEYWORDS = []  # ('repaired', 'demaged', 'defective')
 POINT_7 = ('point-7', 'point7')
 
 
 def contains(string: str, words: Iterable[str]) -> bool:
-    return any(word in string.lower() for word in words)
+    return any(word.lower() in string.lower() for word in words)
 
 
 def not_contains(string: str, words: Iterable[str]) -> bool:
-    return all(word not in string.lower() for word in words)
+    return all(word.lower() not in string.lower() for word in words)
 
 
 def sail_filter(sail: Sail) -> bool:
@@ -107,11 +127,11 @@ def sail_filter(sail: Sail) -> bool:
 
     size_ok = contains(sail.size, INTERESTED_SAIL_SIZES)
     state_ok = not_contains(sail.state, STATE_NO_GO_KEYWORDS)
+    keyword_ok = contains(sail.metadata.offer.title, INTERESTED_SAIL_SIZES + INTERESTED_SAILS) or contains(
+        sail.metadata.offer.description, INTERESTED_SAIL_SIZES + INTERESTED_SAILS
+    )
 
-    price = sail.metadata.price
-    price_ok = True if isinstance(price, str) else (60 <= price <= 450)
-
-    return state_ok and size_ok and price_ok
+    return state_ok and size_ok and keyword_ok
 
 
 def mast_filter(mast: Mast) -> bool:
@@ -125,18 +145,26 @@ def mast_filter(mast: Mast) -> bool:
 
 def full_set_filter(full_set: FullSet) -> bool:
     if contains(full_set.content_description, POINT_7):
-        return True
+        return False
 
-    sail_ok = contains(full_set.content_description, INTERESTED_SAIL_SIZES)
+    sail_ok = (
+        contains(full_set.content_description, INTERESTED_SAIL_SIZES + INTERESTED_SAILS)
+        or contains(full_set.metadata.offer.title, INTERESTED_SAIL_SIZES + INTERESTED_SAILS)
+        or contains(full_set.metadata.offer.description, INTERESTED_SAIL_SIZES + INTERESTED_SAILS)
+    )
 
     return sail_ok
 
 
 def full_rig_filter(full_rig: FullRig) -> bool:
     if contains(full_rig.sail.brand, POINT_7):
-        return True
+        return False
 
-    sail_ok = contains(full_rig.sail.size, INTERESTED_SAIL_SIZES)
+    sail_ok = (
+        contains(full_rig.sail.size, INTERESTED_SAIL_SIZES)
+        or contains(full_rig.metadata.offer.title, INTERESTED_SAIL_SIZES + INTERESTED_SAILS)
+        or contains(full_rig.metadata.offer.description, INTERESTED_SAIL_SIZES + INTERESTED_SAILS)
+    )
     state_ok = not_contains(full_rig.sail.state, STATE_NO_GO_KEYWORDS)
 
     return sail_ok and state_ok
@@ -145,19 +173,19 @@ def full_rig_filter(full_rig: FullRig) -> bool:
 INTERESTS: dict[type, InterestRequest] = {
     Sail: InterestRequest[Sail](
         max_distance=130,
+        min_price=60,
+        max_price=500,
+        min_year=2012,
         filter=sail_filter,
-    ),
-    Mast: InterestRequest[Mast](
-        max_price=350,
-        max_distance=130,
-        filter=mast_filter,
     ),
     FullSet: InterestRequest[FullSet](
         max_distance=130,
+        min_price=60,
         filter=full_set_filter,
     ),
     FullRig: InterestRequest[FullRig](
         max_distance=130,
+        min_price=60,
         filter=full_rig_filter,
     ),
 }
