@@ -52,7 +52,7 @@ WINDSURF_SEARCH_URLS = [
 
 # Format (PLZ, radius in km, name)
 INTEREST_LOCATIONS = [
-    (71034, 30, 'Böblingen'),
+    (71034, 100, 'Böblingen'),
     (76133, 100, 'Karlsruhe'),
     # (77855, 30, 'Achern'),
     # (77656, 30, 'Offenburg'),
@@ -78,7 +78,7 @@ class InterestRequest(Generic[T]):
     filter: Callable[[T], bool] | None = None
 
 
-INTERESTED_SAIL_SIZES = (
+INTERESTED_SAIL_SIZES = [
     '4.9',
     '5.0',
     '5.1',
@@ -90,8 +90,8 @@ INTERESTED_SAIL_SIZES = (
     '5.7',
     '5.8',
     '5.9',
-)
-INTERESTED_SAILS = (
+] + [str(i / 10) for i in range(60, 100)]
+INTERESTED_SAILS = [
     'warp',
     's type',
     'e type',
@@ -108,7 +108,13 @@ INTERESTED_SAILS = (
     'turbo',
     'speedster',
     'ncx',
-)
+]
+RACE_SAIL_TYPES = [
+    'freerace',
+    'slalom',
+    'race',
+    'speed',
+]
 STATE_NO_GO_KEYWORDS = []  # ('repaired', 'demaged', 'defective')
 POINT_7 = ('point-7', 'point7')
 
@@ -127,8 +133,10 @@ def sail_filter(sail: Sail) -> bool:
 
     size_ok = contains(sail.size, INTERESTED_SAIL_SIZES)
     state_ok = not_contains(sail.state, STATE_NO_GO_KEYWORDS)
-    keyword_ok = contains(sail.metadata.offer.title, INTERESTED_SAIL_SIZES + INTERESTED_SAILS) or contains(
-        sail.metadata.offer.description, INTERESTED_SAIL_SIZES + INTERESTED_SAILS
+    keyword_ok = (
+        contains(sail.metadata.offer.title, INTERESTED_SAIL_SIZES + INTERESTED_SAILS)
+        or contains(sail.metadata.offer.description, INTERESTED_SAIL_SIZES + INTERESTED_SAILS)
+        or contains(sail.sail_type, RACE_SAIL_TYPES)
     )
 
     return state_ok and size_ok and keyword_ok
@@ -151,6 +159,7 @@ def full_set_filter(full_set: FullSet) -> bool:
         contains(full_set.content_description, INTERESTED_SAIL_SIZES + INTERESTED_SAILS)
         or contains(full_set.metadata.offer.title, INTERESTED_SAIL_SIZES + INTERESTED_SAILS)
         or contains(full_set.metadata.offer.description, INTERESTED_SAIL_SIZES + INTERESTED_SAILS)
+        or contains(full_set.content_description, RACE_SAIL_TYPES)
     )
 
     return sail_ok
@@ -164,6 +173,7 @@ def full_rig_filter(full_rig: FullRig) -> bool:
         contains(full_rig.sail.size, INTERESTED_SAIL_SIZES)
         or contains(full_rig.metadata.offer.title, INTERESTED_SAIL_SIZES + INTERESTED_SAILS)
         or contains(full_rig.metadata.offer.description, INTERESTED_SAIL_SIZES + INTERESTED_SAILS)
+        or contains(full_rig.sail.sail_type, RACE_SAIL_TYPES)
     )
     state_ok = not_contains(full_rig.sail.state, STATE_NO_GO_KEYWORDS)
 
@@ -172,19 +182,19 @@ def full_rig_filter(full_rig: FullRig) -> bool:
 
 INTERESTS: dict[type, InterestRequest] = {
     Sail: InterestRequest[Sail](
-        max_distance=130,
+        max_distance=230,
         min_price=60,
         max_price=500,
         min_year=2012,
         filter=sail_filter,
     ),
     FullSet: InterestRequest[FullSet](
-        max_distance=130,
+        max_distance=230,
         min_price=60,
         filter=full_set_filter,
     ),
     FullRig: InterestRequest[FullRig](
-        max_distance=130,
+        max_distance=230,
         min_price=60,
         filter=full_rig_filter,
     ),

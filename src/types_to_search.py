@@ -17,7 +17,7 @@ class Sail(Entry):
         '#0',
         parse_numeric,
     )
-    sail_type: str = parameter('Wave, Freestyle, Freeride, Freemove, Slalom, Racing, etc.')
+    sail_type: str = parameter('Wave, Freestyle, Freemove, Freeride, Freerace, Slalom, Racing')
     year: str = parameter('Release Year')
     state: str = parameter('new, used, repaired, demaged, defective')
 
