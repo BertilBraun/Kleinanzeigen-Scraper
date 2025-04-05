@@ -296,6 +296,12 @@ async def main():
     export_to_excel(load_database(DB_FILE), EXCEL_EXPORT_FILE)
     print(f'Data saved to: {EXCEL_EXPORT_FILE}')
 
+    print('All new offers:')
+    for entry in extracted_details:
+        print(get_entry_details_readable(entry))
+
+    print('\n' * 10)
+
     interesting_entries, number_of_interesting_entries = await filter_interesting_entries_using_gpt(extracted_details)
 
     if number_of_interesting_entries:

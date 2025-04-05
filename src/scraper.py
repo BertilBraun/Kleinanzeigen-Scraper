@@ -4,11 +4,10 @@ import asyncio
 from abc import abstractmethod
 from typing import Optional
 
-import aiohttp
-
 from src.config import OFFER_IMAGE_DIR
 from src.types import Offer
 from src.util import timeblock, get_bytes, run_in_batches
+from src.util.requests import GETError
 
 
 class BaseScraper:
@@ -99,7 +98,7 @@ class BaseScraper:
         async def scrape_offer_links_from_search_url(page: int) -> list[str | None]:
             try:
                 return await self.scrape_offer_links_from_search_url(search_url.format(page))
-            except aiohttp.ClientResponseError:
+            except GETError:
                 print(f'Failed to scrape search URL: {search_url.format(page)}')
                 return []
 
@@ -121,7 +120,7 @@ class BaseScraper:
         async def scrape_offer_url(offer_url: str) -> Optional[Offer]:
             try:
                 return await self.scrape_offer_url(offer_url)
-            except aiohttp.ClientResponseError:
+            except GETError:
                 print(f'Failed to scrape offer URL: {offer_url}')
                 return None
 

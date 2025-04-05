@@ -219,10 +219,10 @@ class Entry:
 @dataclass
 class Uninteresting(Entry):
     @overrides(Entry)
-    def to_excel(self) -> dict[str, ExcelExportType]:
+    def to_excel(self, do_add_metadata: bool = True) -> dict[str, ExcelExportType]:
         return {
             'Title': ExcelExportType(number_format=None, value=self.metadata.offer.title),
-            **self.metadata.to_excel(),
+            **(self.metadata.to_excel() if do_add_metadata else {}),
         }
 
     @staticmethod
